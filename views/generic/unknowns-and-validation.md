@@ -10,54 +10,41 @@
 
 ## Unknowns & Validation Questions
 
-Several evidence gaps and one open security question shape how much confidence to place in the rest of this view. The gaps are structural — they reflect collector configuration choices, not missing infrastructure — so they are resolvable. The validation question requires a human answer.
-
-> **Confidence: Likely** — The architecture picture is derived from typed collectors; two meta-collectors were disabled, meaning some resource types and the overall inventory breadth could not be independently verified.
+Two categories of open items shape how much confidence to place in the rest of this view: evidence gaps that limit what CloudoX could determine automatically, and validation questions that require a human to confirm intent. Neither category implies a problem — they mark the boundary between what is known and what still needs an owner.
 
 ### What We Couldn't Confirm
 
-The following gaps are known limitations of this discovery run. None of them indicate a problem in the environment; they indicate places where the analysis is incomplete.
+The following gaps are structural limitations of the current discovery run. They do not indicate misconfiguration, but they do constrain the reliability of cost analysis and resource classification.
 
-#### Cost data is unavailable
+**Tagging coverage is too low for reliable cost allocation.**  
+Only 1% of resources carry a configured cost-allocation tag. As a result, tag-based cost attribution across workloads, environments, or teams is not yet meaningful. 781 resources also have no Environment / Stage / Tier tag and rely on inference for classification — those classifications should be treated as approximate.
+*(Confidence: Unknown — based on tag inventory from the current snapshot)*
 
-Cost Explorer collection was disabled (`CLOUDOX_COST__ENABLED=false` / `--no-collect-costs`), so no spend figures exist for this run. All cost-related observations in this view are derived from the discovered architecture — resource patterns known to carry charges — not from actual billing data. [`evidence_gap:cost:cost-explorer-collection-is-disabled-...`]
+**~22% of spend cannot be mapped to discovered architecture.**  
+About 22% of total spend falls in services that CloudoX does not currently map to the discovered resource graph. This portion is reported as unassociated rather than attributed to a workload. The cost picture for mapped workloads is therefore incomplete by that margin.
+*(Confidence: Unknown)*
 
-Additionally, CloudoX does not collect CloudWatch utilization metrics in this version. Idle, underutilized, or right-sizing recommendations based on actual usage are therefore not available. [`evidence_gap:cost:cloudox-does-not-collect-cloudwatch-utilization-metrics-in-this-version-...`]
+**No utilization metrics are available.**  
+CloudoX does not collect CloudWatch utilization metrics in this version. Idle resource detection, underutilization flags, and right-sizing recommendations based on actual usage are not available. Any efficiency or optimization analysis in this view is based on configuration patterns, not observed load.
+*(Confidence: Unknown)*
 
-Several cost-relevant resource attributes are also outside current collector scope: RDS read replicas, RDS provisioned IOPS, DynamoDB capacity mode, Direct Connect, and S3 storage classes are not captured, so cost drivers for those dimensions are not detected. [`evidence_gap:cost:rds-read-replicas-rds-provisioned-iops-dynamodb-capacity-mode-direct-connect-and-s3-storage-classes-are-not-captured-by-the-current-collectors-so-cost-drivers-for-them-are-not-detected`]
+**Several resource attributes are outside collector scope.**  
+RDS read replicas, RDS provisioned IOPS, DynamoDB capacity mode, Direct Connect, and S3 storage classes are not captured by the current collectors. Cost drivers and architectural details for these specific attributes are not detected and should be verified directly in the AWS console or Cost Explorer.
+*(Confidence: Unknown)*
 
-**To resolve:** Enable Cost Explorer collection and re-run discovery. For utilization-based recommendations, CloudWatch metric collection will need to be supported in a future version.
+**AWS-wide breadth could not be cross-checked.**  
+The Resource Explorer meta-collector was disabled or unavailable during this discovery run. CloudoX could not use it to cross-check whether all AWS-visible resources were reached. There may be resources in scope that are not reflected in this view.
 
-#### Inventory breadth could not be cross-checked
-
-Two meta-collectors that would have provided an independent view of all resources in the accounts were not available for this run:
-
-| Meta-collector | Status | Effect |
-|---|---|---|
-| AWS Cloud Control | Disabled | Long-tail resource types are limited to typed collector coverage only |
-| AWS Resource Explorer | Disabled / unavailable | AWS-visible resource breadth could not be cross-checked against what CloudoX discovered |
-
-This means there may be resource types not covered by typed collectors that are absent from this view. The discovered resources are accurate; completeness is uncertain. [`evidence_gap:coverage:cloud-control-meta-collector-was-disabled-long-tail-resource-types-are-limited-to-typed-collector-coverage`] [`evidence_gap:coverage:resource-explorer-meta-collector-was-disabled-or-unavailable-aws-visible-breadth-could-not-be-cross-checked`]
-
-**To resolve:** Enable Cloud Control and/or Resource Explorer meta-collectors on the next run.
-
-#### Tagging gaps affect environment classification
-
-761 resources have no Environment / Stage / Tier tag and rely on inference for classification. Environment assignments for those resources should be treated as approximate.
-
-#### Security Hub enablement
-
-No Security Hub enablement was discovered in this run. Coverage of Security Hub findings is therefore not available in this view.
+---
 
 ### Questions to Validate
 
-#### IAM role `cloudox-demo-sandbox-unused-admin` — confirm privilege scope
+The following items require confirmation from a resource owner. They are flagged because CloudoX observed a pattern that warrants human review, but cannot determine intent from configuration alone.
 
-**Account:** `161388682021` (sandbox) 
-**Role ID:** `AROAAAAADPCL3BVEXUDTH`
+**Does IAM role `cloudox-demo-sandbox-ci-admin` require its current privilege level, and who owns it?**  
+This role (ID: `AROAAAAAAO5VMOEOZ70IX`) in account `161388682021` carries administrative privileges. The name suggests a CI/CD use case. Whether that privilege level is intentional and actively maintained — or a leftover from initial setup — is not determinable from the graph alone.
+*(Confidence: Assumed — privilege level is observed; intent is not)*
 
-This role carries a name suggesting administrative privileges and appears to be unused. The open question is whether that privilege level is intentional and whether the role has a current owner.
-
-> **Validation question:** Does IAM role `cloudox-demo-sandbox-unused-admin` require its current privilege level, and who owns it?
-
-This is flagged as **Assumed** confidence — the concern is inferred from the role name and apparent inactivity, not from a policy evaluation. A human with access to the sandbox account should confirm whether the role is still needed, whether its permissions are appropriately scoped, and whether it should be removed or restricted. [`validation_question:security:cloudox-demo-sandbox-unused-admin`]
+**Does IAM role `cloudox-demo-sandbox-unused-admin` require its current privilege level, and who owns it?**  
+This role (ID: `AROAAAAADPCL3BVEXUDTH`) in account `161388682021` also carries administrative privileges. The name includes "unused", which may indicate it is no longer active — but CloudoX cannot confirm last-use or intended lifecycle from available evidence.
+*(Confidence: Assumed — privilege level is observed; activity and ownership are not)*

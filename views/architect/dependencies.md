@@ -10,45 +10,57 @@
 
 ## Dependencies
 
-The most pressing dependency concern in this environment is a production workload's reliance on a single-AZ database instance — a resilience gap that sits directly in the critical path. Architects should treat this as the primary structural risk to address before any scaling or modernisation work.
+The most actionable finding in this section is a verified single-AZ database dependency sitting in the critical path of a production workload — a resilience gap that warrants immediate architectural review. The broader dependency picture spans 15 VPCs, 63 subnets, and 9 observed internet-facing access paths across multiple workloads and accounts.
 
 ### Workload Dependencies
 
-Five workloads are identified across three accounts and one region (eu-central-1), with varying confidence levels:
+Six workloads are identified across three accounts in eu-central-1:
 
-| Workload | Account | Region | Confidence |
-|---|---|---|---|
-| Cloudox Demo Atlas Prod API (`cloudox-demo-atlas-prod-api`) | 122122642149 | eu-central-1 | Likely |
-| Cloudox (`cloudox`) | 122122642149 | eu-central-1 | Verified |
-| Cloudox Demo Atlas Dev (`cloudox-demo-atlas-dev`) | 105769365151 | eu-central-1 | Likely |
-| Cloudox Demo Atlas Dev API (`cloudox-demo-atlas-dev-api`) | 105769365151 | eu-central-1 | Likely |
-| Cloudox Demo Sandbox Scratch (`cloudox-demo-sandbox-scratch`) | 161388682021 | eu-central-1 | Assumed |
+| Workload | Account | Confidence |
+|---|---|---|
+| Cloudox (`cloudox`) | 122122642149 | Verified |
+| Cloudox Demo Atlas Prod API (`cloudox-demo-atlas-prod-api`) | 122122642149 | Likely |
+| Cloudox Demo Atlas Dev (`cloudox-demo-atlas-dev`) | 105769365151 | Likely |
+| Cloudox Demo Atlas Dev API (`cloudox-demo-atlas-dev-api`) | 105769365151 | Likely |
+| Cloudox Demo Sandbox Scratch (`cloudox-demo-sandbox-scratch`) | 161388682021 | Assumed |
+| Cloudox Demo Atlas Dev (system) | Unknown | Assumed |
 
-The environment summary indicates 9 internet-facing access paths, 15 VPCs, 63 subnets, and 1 load balancer. Internet-facing paths are evidenced across multiple accounts and regions (including `https://gfwaiva01f.execute-api.eu-central-1.amazonaws.com`, `https://xdmn5ldmif.execute-api.eu-central-1.amazonaws.com`, and internet gateways in eu-central-1 and us-east-1). The distribution of internet gateways across accounts (`igw-00ed21b9a0e6596a8`, `igw-0d14f1dd4e54d5906`, `igw-0567575921f471548`, `igw-0cff0d66b4fd90803`) suggests multiple independently internet-connected VPCs rather than a centralised egress model, though cross-account network topology details are not fully resolved in this section.
+Two internet-facing API Gateway endpoints are observed: `https://gfwaiva01f.execute-api.eu-central-1.amazonaws.com` and `https://xdmn5ldmif.execute-api.eu-central-1.amazonaws.com`. These represent externally reachable entry points into the workload graph. A total of 9 internet-facing access paths are recorded across the environment.
 
-> **Note:** 761 resources have no Environment / Stage / Tier tag and rely on inference for classification. Workload boundaries and dependency mapping for those resources carry additional uncertainty.
+Note: workloads marked **Assumed** rely on inference rather than explicit tagging — 781 resources carry no Environment / Stage / Tier tag, which limits classification confidence for those entities.
 
 ### Data Dependencies
 
-Three DynamoDB tables are observed as data-tier dependencies across the workloads:
+Four DynamoDB tables are observed as data-tier dependencies across accounts and stages:
 
-| Table | Account | Workload Context |
+| Table | Account | Stage |
 |---|---|---|
-| `cloudox-demo-atlas-dev-items` | 105769365151 | Atlas Dev |
-| `cloudox-demo-atlas-prod-items` | 122122642149 | Atlas Prod |
+| `cloudox-demo-atlas-dev-items` | 105769365151 | Dev |
+| `cloudox-demo-atlas-prod-items` | 122122642149 | Prod |
+| `cloudox-demo-sandbox-events` | 161388682021 | Sandbox |
 | `cloudox-demo-sandbox-scratch` | 161388682021 | Sandbox |
 
-The critical data dependency is the RDS DB instance **cloudox-demo-atlas-prod-pg** (`cloudox-demo-atlas-prod-pg`), on which the **Cloudox Demo Atlas Prod API** (`cloudox-demo-atlas-prod-api`, account 122122642149, eu-central-1) depends. This instance is not Multi-AZ. A single availability zone failure would take the production API's entire data tier offline. This concern is rated **Verified** confidence and priority 3.
+Beyond DynamoDB, the **Cloudox Demo Atlas Prod API** workload (`cloudox-demo-atlas-prod-api`, account 122122642149, eu-central-1) has a verified dependency on the RDS DB instance **cloudox-demo-atlas-prod-pg**. This instance is not Multi-AZ. A zone failure would take the production data tier offline for this workload — the highest-priority dependency concern identified in this section.
 
-> **Recommended action:** Confirm whether Multi-AZ is enabled and whether automated backups are in place for `cloudox-demo-atlas-prod-pg`. Review how Cloudox Demo Atlas Prod API handles a data-tier failure — specifically whether it degrades gracefully or fails hard.
+> **Dependency concern** (`dependency_concern:architecture:cloudox-demo-atlas-prod-pg`, Priority 3, Confidence: Verified): *"A workload depends on datastore 'cloudox-demo-atlas-prod-pg', which is not Multi-AZ; a zone failure would take the dependent workload's data tier offline."*
+>
+> **Recommended action:** Confirm resilience posture (Multi-AZ enablement and/or backup strategy) for `cloudox-demo-atlas-prod-pg`, and review how the Cloudox Demo Atlas Prod API handles a data-tier failure — including connection retry logic, circuit-breaking, and graceful degradation.
+
+Account-level details for `cloudox-demo-atlas-prod-pg` itself are not resolved in this package (account ID and region are unknown for the DB instance resource directly).
 
 ### Coupling Risks
 
-The primary coupling risk is the tight, single-path dependency between **Cloudox Demo Atlas Prod API** and the non-Multi-AZ `cloudox-demo-atlas-prod-pg` instance. Key architectural questions this raises:
+The primary structural coupling risk is the single-AZ RDS instance described above — a hard dependency from a production API workload to a data tier with no observed zone redundancy.
 
-- **No observed redundancy:** There is no evidence in this section of a read replica, standby instance, or failover target for `cloudox-demo-atlas-prod-pg`. The account ID for the DB instance itself is not confirmed (`Unknown`), which limits full traceability.
-- **Blast radius:** A zone failure affecting `cloudox-demo-atlas-prod-pg` would directly impact the production API workload. Whether upstream consumers (e.g. the Cloudox workload or internet-facing API Gateway endpoints) would also be affected depends on call chains not fully resolved here.
-- **Dev/Prod isolation:** Dev (`cloudox-demo-atlas-dev`, account 105769365151) and Prod (`cloudox-demo-atlas-prod-api`, account 122122642149) workloads are in separate accounts, which is a positive isolation pattern. The sandbox (`cloudox-demo-sandbox-scratch`, account 161388682021) is similarly separated.
-- **Tagging gap:** With 761 untagged resources relying on inference, dependency chains involving those resources carry elevated uncertainty. This limits the ability to fully map coupling across tiers.
+Internet gateway presence across multiple accounts and regions (internet gateways observed in us-east-1 account 110019496666, eu-central-1 account 110019496666, and us-east-1 account 105769365151) indicates that internet egress/ingress paths exist beyond the eu-central-1 production footprint. The architectural significance of cross-region gateways relative to the workloads in scope is not fully resolved from this section's evidence.
 
-**Modernisation opportunity:** Enabling Multi-AZ on `cloudox-demo-atlas-prod-pg` is the highest-priority structural improvement surfaced in this section. Beyond that, formalising tier and environment tagging would materially improve dependency visibility and reduce inference-based classification across the environment.
+Security group exposure changes (see below) are relevant to coupling risk: a newly internet-reachable security group (`sg-0d6a48061beb72eae`) may expand the attack surface of any resource it protects, depending on what it is attached to — that attachment is not resolved in this package.
+
+### Changes Since Previous Snapshot
+
+Between the snapshot at 2026-07-20T11:50 UTC and the current snapshot at 2026-07-20T12:54 UTC, two observed exposure changes occurred:
+
+- **Added:** Security group `sg-0d6a48061beb72eae` became reachable from the internet. Architects should confirm which resources this group protects and whether this exposure is intentional.
+- **Removed:** Security group `sg-04fae132cfc68e91d` is no longer reachable from the internet — a reduction in internet exposure.
+
+Additional related changes exist beyond those listed here; see the Environment Evolution page for the full picture.

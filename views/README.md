@@ -15,12 +15,20 @@ Pick the view that matches your question:
 
 | View | Audience | Confidence | Sections |
 | --- | --- | --- | --- |
-| [Architect](./architect/README.md) | Solutions / Cloud Architects | Likely | 9 |
-| [Executive](./executive/README.md) | CTO / Engineering leadership | Likely | 8 |
-| [FinOps](./finops/README.md) | FinOps / Finance | Likely | 8 |
-| [Generic](./generic/README.md) | Any technical reader | Likely | 9 |
-| [Operations](./operations/README.md) | Platform / Operations Engineers | Verified | 9 |
-| [Security](./security/README.md) | Security & Governance teams | Likely | 8 |
+| [Architect](./architect/README.md) | Solutions / Cloud Architects | Likely | 10 |
+| [Executive](./executive/README.md) | CTO / Engineering leadership | Verified | 9 |
+| [FinOps](./finops/README.md) | FinOps / Finance | Likely | 9 |
+| [Generic](./generic/README.md) | Any technical reader | Likely | 10 |
+| [Operations](./operations/README.md) | Platform / Operations Engineers | Verified | 10 |
+| [Security](./security/README.md) | Security & Governance teams | Verified | 9 |
+
+## Related pages
+
+Cross-cutting analyses that span every view — read alongside the audience lenses above:
+
+- [Environment Evolution](../environment-evolution.md) — What changed since the previous discovery run.
+- [Cost Intelligence](../cost-intelligence.md) — Spend explained in architectural context.
+- [Knowledge Quality](../knowledge-quality.md) — How well each view answers its audience's questions.
 
 _Navigation for these views is in `navigation.json` (view-aware: each view lists its own section structure)._
 

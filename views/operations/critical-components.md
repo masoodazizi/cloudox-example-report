@@ -10,39 +10,42 @@
 
 ## Critical Components
 
-The most operationally significant finding in this section is a **single-AZ database instance sitting in the critical path of the production API**. A zone failure would take the production data tier offline with no automatic failover. This warrants immediate resilience review.
+The most operationally significant finding in this section is a single-AZ database instance sitting directly in the critical path of a production workload — a zone failure would take that workload's data tier offline with no automatic failover.
 
 ### Critical Workloads
 
-The following workloads are identified as key operational entities. The production workload carries the highest risk profile given its confirmed dependency concern.
+The **Cloudox Demo Atlas Prod API** workload (`cloudox-demo-atlas-prod-api`, account `122122642149`, eu-central-1) has a verified dependency on the DBInstance **`cloudox-demo-atlas-prod-pg`**. That datastore is not configured for Multi-AZ. The operational consequence is straightforward: if the availability zone hosting `cloudox-demo-atlas-prod-pg` experiences a failure, the Atlas Prod API loses its data tier entirely until the instance is recovered or manually failed over.
 
-| Workload | Account | Region | Confidence |
-|---|---|---|---|
-| Cloudox Demo Atlas Prod API (`cloudox-demo-atlas-prod-api`) | 122122642149 | eu-central-1 | Likely |
-| Cloudox (`cloudox`) | 122122642149 | eu-central-1 | Verified |
-| Cloudox Demo Atlas Dev API (`cloudox-demo-atlas-dev-api`) | 105769365151 | eu-central-1 | Likely |
-| Cloudox Demo Atlas Dev (`cloudox-demo-atlas-dev`) | 105769365151 | eu-central-1 | Likely |
-| Cloudox Demo Sandbox Scratch (`cloudox-demo-sandbox-scratch`) | 161388682021 | eu-central-1 | Assumed |
+**What can break:** Any request path through Cloudox Demo Atlas Prod API that touches the database will fail. There is no automatic promotion to a standby replica because none is confirmed to exist.
 
-**Cloudox Demo Atlas Prod API** is the workload directly exposed to the resilience risk described below. The dev and sandbox workloads are noted for completeness; their risk profiles are lower, but their environment classification relies on inference rather than explicit tagging (see Unknowns).
+**What requires operational attention:**
+- Confirm whether Multi-AZ is enabled on `cloudox-demo-atlas-prod-pg`. If it is not, this is a gap that needs remediation.
+- Verify that automated backups are in place and that the recovery time objective (RTO) is acceptable for a manual restore scenario.
+- Review how the Cloudox Demo Atlas Prod API handles data-tier unavailability — does it degrade gracefully, queue writes, or fail hard to callers?
+
+**Recovery risk:** Without Multi-AZ, recovery from a zone failure depends on a point-in-time restore or snapshot, which carries both RTO and RPO risk. The recommended action is to confirm resilience posture (Multi-AZ / backup schedule) and validate dependent workload failure-handling before an incident occurs.
+
+> Confidence: The dependency concern itself is Verified. The account ID and region for `cloudox-demo-atlas-prod-pg` are not confirmed in this package (the resource appears without an account or region), so the exact hosting context of the instance should be validated with the environment owner.
 
 ### Shared Dependencies
 
-**`cloudox-demo-atlas-prod-pg` — Single-AZ DBInstance (Priority 3)**
+No shared dependency evidence beyond the `cloudox-demo-atlas-prod-pg` datastore is present in this section's package. Other resource categories (networking, observability integrations, etc.) are covered in their respective sections of this view.
 
-Intelligence item `dependency_concern:architecture:cloudox-demo-atlas-prod-pg` identifies that **Cloudox Demo Atlas Prod API** (`cloudox-demo-atlas-prod-api`, account 122122642149, eu-central-1) depends on the database instance `cloudox-demo-atlas-prod-pg`, which is **not configured for Multi-AZ**.
+One material tagging gap affects classification confidence across the environment: **781 resources have no Environment / Stage / Tier tag** and rely on inference for workload assignment. This means the full blast radius of a shared dependency failure may be underestimated until tagging is improved.
 
-> *"A workload depends on datastore 'cloudox-demo-atlas-prod-pg', which is not Multi-AZ; a zone failure would take the dependent workload's data tier offline."*
+### Changes Since Previous Snapshot
 
-**What can break:** A single Availability Zone failure in eu-central-1 would make `cloudox-demo-atlas-prod-pg` unavailable, taking the production API's data tier offline for the duration of the outage. There is no automatic failover path evidenced.
+Several infrastructure changes were observed between the previous snapshot (2026-07-20T11:50:27Z) and the current one (2026-07-20T12:54:55Z) that are relevant to the operational picture of critical components:
 
-**What requires operational attention:**
-- Confirm whether Multi-AZ is enabled or intentionally disabled on `cloudox-demo-atlas-prod-pg`.
-- Verify that automated backups are configured and that the recovery point objective (RPO) is acceptable.
-- Review how **Cloudox Demo Atlas Prod API** handles a data-tier failure — does it degrade gracefully, queue writes, or fail hard?
+- **New DR CloudFormation stack** (`StackSet-cloudox-demo-workload-prod-dr-e27aba00-144f-1560-0aed-593e2d919536`) was added in us-east-1 under account `122122642149` — this is the same account as the Atlas Prod workload and may represent a new disaster-recovery deployment worth verifying against the `cloudox-demo-atlas-prod-pg` resilience gap.
+- **New CloudWatch Alarm** `cloudox-demo-atlas-prod-dr-bucket-size` was added in us-east-1 (`122122642149`), suggesting DR bucket monitoring is now in place for the prod workload.
+- **Three services entered discovered scope**: `securityhub`, `ssm`, and `stepfunctions` — their relationship to critical workloads is not established in this package.
+- **New DynamoDB table** `cloudox-demo-sandbox-events` (`arn:aws:dynamodb:eu-central-1:161388682021:table/cloudox-demo-sandbox-events`) was added in the sandbox account.
+- **New EIP** `cloudox-demo-atlas-dev-nat-eip` (`eipalloc-083eada77de5498db`) was added in account `105769365151` eu-central-1, and a new **network interface** `eni-058ad447b7287912a` appeared in account `122122642149` eu-central-1.
+- Two workloads were inferred to have grown: **Cloudox** (9 → 10 resources) and **Cloudox Demo Atlas Dev** (4 → 5 resources).
 
-**Recovery risk:** Without Multi-AZ, recovery from a zone failure requires a restore from backup or a manual promotion, both of which introduce recovery time that may exceed production SLAs. The account ID for `cloudox-demo-atlas-prod-pg` itself could not be confirmed from available evidence — traceability to the owning account should be established before remediation is planned.
-
-No equivalent dependency concerns are evidenced for the dev (`cloudox-demo-atlas-dev-api`) or sandbox (`cloudox-demo-sandbox-scratch`) workloads within this section's scope.
+An additional **70 changes** were recorded in this snapshot period but are not enumerated here. See the Environment Evolution page for the full list.
 
 ![Workload architecture](./diagrams/operations-workload-architecture.png)
+
+> **Figure — Workload architecture.** What are the significant workloads and how do their tiers connect? Scope: operations view · critical components. 4 of 5 inferred workload(s) shown (most significant first) with ingress → compute → data tiers. Edges are drawn only where a graph relationship exists. 1 additional workload(s) omitted to keep the diagram readable.

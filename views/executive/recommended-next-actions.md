@@ -6,23 +6,35 @@
 
 ---
 
-> _Part of the [Executive View](./README.md) · Audience: CTO / Engineering leadership · Confidence: Likely_
+> _Part of the [Executive View](./README.md) · Audience: CTO / Engineering leadership · Confidence: Verified_
 
 ## Recommended Next Actions
 
 ### Near-Term Actions
 
-One verified architectural risk warrants attention before it becomes an incident: the production database **cloudox-demo-atlas-prod-pg** is running in a single Availability Zone with no standby. A zone failure would cause unplanned downtime and potential data loss for whatever workload depends on this datastore.
+Three workloads and one production datastore surface as the highest-priority items requiring owner engagement. None demand an immediate architectural decision, but two warrant prompt validation before any cost or resilience action is taken.
 
-| Priority | Resource | Risk | Recommended Action |
-|---|---|---|---|
-| High | cloudox-demo-atlas-prod-pg | Zone failure → downtime / data loss | Evaluate enabling Multi-AZ standby |
+**Production database resilience — act with confidence**
 
-**Decision needed from engineering leadership:** Confirm whether the availability and recovery requirements for `cloudox-demo-atlas-prod-pg` justify enabling a Multi-AZ standby replica. This is an architectural change with cost implications; the trade-off should be made explicitly rather than by default.
+The production database `cloudox-demo-atlas-prod-pg` runs in a single Availability Zone with no Multi-AZ standby. A zone failure would cause downtime and potential data loss. This is the only item in this section with Verified confidence. The recommended step is to evaluate enabling a Multi-AZ standby; the decision sits with engineering leadership and the database owner. (Ref: `modernization_opportunity:architecture:cloudox-demo-atlas-prod-pg`)
 
-> **Confidence: Likely.** This finding is based on discovered architecture. Spend impact cannot be quantified at this time — cost collection is currently disabled for this workspace. Security Hub enablement status is also unknown, which limits visibility into additional security findings that may exist.
+**Cost pressure — validate before acting**
 
-**Additional gaps to be aware of:**
-- Security Hub is not enabled (or not discovered), reducing centralised security signal coverage.
-- Cost data is unavailable; spend-based prioritisation and right-sizing recommendations cannot be made until cost collection is enabled.
-- CloudWatch utilisation metrics are not collected in this version, so idle or over-provisioned resource recommendations are not available.
+Three workloads carry the highest relative cost-pressure signals in the environment. These are prioritization signals derived from architectural cost drivers, not exact spend figures — validate with resource owners before drawing conclusions or taking action.
+
+| Workload | Region | Cost-pressure signal | Architectural cost drivers | Confidence |
+|---|---|---|---|---|
+| Cloudox | eu-central-1 | 0.80 / 1.0 (highest) | 3 | Assumed |
+| Cloudox Demo Atlas Dev | eu-central-1 | 0.23 / 1.0 | 1 | Assumed |
+| Cloudox Demo Atlas Dev API | eu-central-1 | 0.18 / 1.0 | 1 | Unknown |
+
+The recommended action for each is to review cost drivers with the respective resource owners before any optimization move. (Refs: `recommendation:cost:cloudox`, `recommendation:cost:cloudox-demo-atlas-dev`, `recommendation:cost:cloudox-demo-atlas-dev-api`)
+
+**Material gaps that limit this picture**
+
+Four constraints bound what CloudoX can surface here and are worth flagging to engineering leadership:
+
+- CloudWatch utilization metrics are not collected in this version, so idle-resource and right-sizing recommendations are not available.
+- Only 1% of resources carry a cost-allocation tag, making tag-based cost attribution unreliable across the board.
+- Approximately 22% of spend maps to services outside the discovered architecture and is reported as unassociated rather than attributed.
+- Several service categories (RDS read replicas, provisioned IOPS, DynamoDB capacity mode, Direct Connect, S3 storage classes) are not captured by current collectors.

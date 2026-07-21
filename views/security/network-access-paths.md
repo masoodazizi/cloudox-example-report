@@ -12,42 +12,48 @@
 
 **Confidence: Verified** — Derived from complete graph evidence for this domain.
 
-Three separate VPCs, each with a direct internet gateway attachment, define the external exposure boundary for this environment. All observed subnets in scope are public-facing, meaning resources placed in them are reachable from the internet subject only to security group and network ACL controls. This is the most significant network-access posture signal available from the current evidence set and warrants explicit validation of what is actually running in those subnets.
+Three VPCs across three AWS accounts are internet-facing in eu-central-1, each with its own Internet Gateway. This is the most security-relevant structural fact for this section: internet ingress paths exist in all three environments — Dev, Prod, and Sandbox — and each warrants independent scrutiny of what is reachable from the public internet.
 
 ### Ingress Paths
 
-Three VPCs are confirmed across two accounts and one sandbox account, all in `eu-central-1`, each with a dedicated internet gateway:
+All three VPCs carry an attached Internet Gateway, establishing direct internet ingress capability at the network layer:
 
-| VPC | Account | Internet Gateway | Environment Signal |
+| Environment | Account | VPC | Internet Gateway |
 |---|---|---|---|
-| Cloudox Demo Atlas Prod VPC (`vpc-0aaa6d4f2f981e945`) | `122122642149` | Cloudox Demo Atlas Prod Igw (`igw-01dd5625ec1ea7a54`) | Production |
-| Cloudox Demo Atlas Dev VPC (`vpc-0a4d44a07f48d7ca0`) | `105769365151` | Cloudox Demo Atlas Dev Igw (`igw-0155958a0a5e9c500`) | Development |
-| Cloudox Demo Sandbox VPC (`vpc-0c97d53850c027a14`) | `161388682021` | Sandbox Internet Gateway (`igw-08017528fa36ccb4d`) | Sandbox |
+| Atlas Dev | 105769365151 | Cloudox Demo Atlas Dev VPC (`vpc-0a4d44a07f48d7ca0`) | Cloudox Demo Atlas Dev Igw (`igw-0155958a0a5e9c500`) |
+| Atlas Prod | 122122642149 | Cloudox Demo Atlas Prod VPC (`vpc-0aaa6d4f2f981e945`) | Cloudox Demo Atlas Prod Igw (`igw-01dd5625ec1ea7a54`) |
+| Sandbox | 161388682021 | Cloudox Demo Sandbox VPC (`vpc-0c97d53850c027a14`) | Sandbox Internet Gateway (`igw-08017528fa36ccb4d`) |
 
-All five confirmed subnets in scope are classified as **Public Subnets** in `eu-central-1`:
+Public subnets are confirmed in all three accounts. In account 105769365151 (Dev): `subnet-065f522206524ab12` (Public Subnet b065) and `subnet-0f64d71c952a7898a` (Public Subnet d725). In account 122122642149 (Prod): `subnet-013a24d318ed6f3d0` (Public Subnet 94f8) and `subnet-016c22941a019a137` (Public Subnet 5a8a). In account 161388682021 (Sandbox): `subnet-029e2cceb3d0beff7` (Public Subnet 244e).
 
-- `subnet-016c22941a019a137` (account `122122642149` — Prod)
-- `subnet-013a24d318ed6f3d0` (account `122122642149` — Prod)
-- `subnet-0f64d71c952a7898a` (account `105769365151` — Dev)
-- `subnet-065f522206524ab12` (account `105769365151` — Dev)
-- `subnet-029e2cceb3d0beff7` (account `161388682021` — Sandbox)
+The presence of public subnets in the **production** VPC (`vpc-0aaa6d4f2f981e945`) is the highest-priority ingress concern for Security & Governance teams. Any resource placed in those subnets with a public IP and permissive security group rules is directly reachable from the internet. The package does not provide security group rule detail for this section — that evidence is covered elsewhere in this view.
 
-The presence of public subnets in the **production** VPC (`vpc-0aaa6d4f2f981e945`) is the highest-priority exposure signal here. Security and governance teams should confirm which compute or data resources are placed in `subnet-016c22941a019a137` and `subnet-013a24d318ed6f3d0`, and verify that security groups and NACLs are the intended last line of defence for those resources.
-
-AWS-managed prefix lists `pl-66a5400f` and `pl-6ea54007` (eu-central-1 regional prefix lists) are referenced in the evidence, indicating that at least some access rules are scoped to AWS-managed IP ranges rather than arbitrary open CIDRs — however, the specific rules and resources they are attached to are not detailed in this section's evidence set.
-
-A **DynamoDB Interface Endpoint** (`vpce-02ddbd8d63a6ab447`) is present in the Prod account (`122122642149`), providing a private path to DynamoDB from within the Prod VPC. This reduces the need for DynamoDB traffic to traverse the public internet from that VPC.
+AWS-managed prefix lists `pl-66a5400f` and `pl-6ea54007` (eu-central-1) are present in the evidence set, indicating that at least some security group or route table rules reference AWS service prefix lists (e.g., S3 or DynamoDB gateway endpoints). The specific rules referencing these lists are not detailed in this section's package.
 
 ### Lateral Connectivity
 
-The package confirms the existence of three distinct VPCs across three accounts. No VPC peering connections, Transit Gateway attachments, or PrivateLink cross-VPC service endpoints are recorded in this section's evidence. The absence of observed lateral connectivity paths between Prod, Dev, and Sandbox VPCs is noted, but coverage of inter-VPC routing is not guaranteed to be complete from this section alone — other sections may carry additional evidence.
+A NAT Gateway — **Cloudox Demo Atlas Dev NAT** (`nat-05bf82584b9610324`, account 105769365151, eu-central-1) — is present in the Dev environment. NAT Gateways enable outbound internet access for resources in private subnets without exposing them to inbound connections; their presence confirms that private-subnet workloads in the Dev VPC have egress capability. No equivalent NAT Gateway is evidenced in the Prod or Sandbox VPCs within this section's package.
 
-One architecture-level dependency concern is recorded that has direct network-access implications:
+One intelligence item is relevant to lateral risk in the Prod environment:
 
-> **Critical dependency: DBInstance `cloudox-demo-atlas-prod-pg`** (`dependency_concern:architecture:cloudox-demo-atlas-prod-pg`) — The workload **Cloudox Demo Atlas Prod API** (`cloudox-demo-atlas-prod-api`, account `122122642149`, `eu-central-1`) depends on the datastore `cloudox-demo-atlas-prod-pg`, which is **not Multi-AZ**. A zone failure would take the data tier offline for this production workload. *Confidence on the workload entity: Likely; confidence on the datastore entity: Unknown.*
+> **Critical dependency: DBInstance cloudox-demo-atlas-prod-pg** (`dependency_concern:architecture:cloudox-demo-atlas-prod-pg`) — **Confidence: Verified**
+> The workload *Cloudox Demo Atlas Prod API* (account 122122642149) depends on the datastore `cloudox-demo-atlas-prod-pg`, which is not Multi-AZ. A zone failure would take the data tier offline. From a security and governance perspective, this single-AZ configuration also concentrates blast radius: any network-level incident affecting the AZ hosting this datastore would simultaneously impact availability. The recommended action is to confirm Multi-AZ status and backup posture, and to review how the API workload handles a data-tier failure.
 
-From a governance perspective, this means the network path to the production database is a single point of failure: if the availability zone hosting `cloudox-demo-atlas-prod-pg` becomes unreachable, the dependent API loses its data tier entirely. The recommended action is to confirm whether Multi-AZ or automated backups are configured, and to review how the API handles a data-tier failure (graceful degradation vs. hard outage).
+No VPC peering, Transit Gateway, or PrivateLink connectivity is evidenced in this section's package. Cross-VPC lateral paths, if any, are covered in other sections of this view.
 
-> **Evidence gap:** No Security Hub enablement was discovered for this environment. This means there is no confirmed centralised findings aggregation for network-level security signals (e.g., GuardDuty network findings, Security Hub network reachability checks). Governance teams should treat network exposure assessments as potentially incomplete until Security Hub or an equivalent control is confirmed active.
+### Changes Since Previous Snapshot
+
+Between 2026-07-20T11:50 UTC and 2026-07-20T12:54 UTC, several network-layer changes were observed:
+
+- **NAT Gateway added (Observed):** `nat-05bf82584b9610324` (cloudox-demo-atlas-dev-nat) was newly created in account 105769365151. This introduces outbound internet egress for private subnets in the Dev VPC — a meaningful change to the Dev egress posture that should be validated against change management records.
+- **Public subnet IP counts decreased (Observed):** `subnet-065f522206524ab12` (Dev public-a) dropped from 251 → 249 available IPs, and `subnet-013a24d318ed6f3d0` (Prod public-a) dropped from 250 → 249. This indicates new resources were placed in these public subnets — the specific ENIs are reflected in the relationship changes below.
+- **ENI-to-subnet relationships added (Observed):** New interface placements were recorded: `eni-0dbafb51ea9a9ffd3` and `eni-00815b97162c6a5fc` into Dev public subnet `subnet-065f522206524ab12`; `eni-0fa5e7a1b3798b7d3` into Prod public subnet `subnet-013a24d318ed6f3d0`; `eni-058ad447b7287912a` into `subnet-0b0384769d442046a`; and `eni-0d070d51a01905b0b` into Dev public subnet `subnet-0f64d71c952a7898a`.
+- **ENI-to-subnet relationships removed (Observed):** `eni-0c9de7ff9cd35fe20` was removed from `subnet-0b0384769d442046a`, and `eni-0596723d0b7500459` was removed from `subnet-0f64d71c952a7898a`, indicating interfaces were detached or terminated.
+
+The new ENIs placed in public subnets — particularly `eni-0fa5e7a1b3798b7d3` in the **Prod** public subnet — warrant validation: confirm what resource owns each interface, whether it carries a public IP, and whether the associated security groups restrict inbound access appropriately.
+
+Note: 26 additional related changes exist beyond those listed here. See the **Environment Evolution** page for the full set.
 
 ![Workload VPC network topology](./diagrams/security-network-topology.png)
+
+> **Figure — Workload VPC network topology.** Which workload VPCs exist, how is each tiered, and what is reachable from the internet? Scope: security view · network access paths. 2 of 2 workload VPC(s) shown with subnet tiers and evidence-backed connectivity. Default VPCs omitted. Tiers are route-grounded (public = Internet Gateway route or internet-facing load balancer).

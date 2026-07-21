@@ -6,17 +6,18 @@
 
 ---
 
-**Audience:** CTO / Engineering leadership · **Overall confidence:** Likely
+**Audience:** CTO / Engineering leadership · **Overall confidence:** Verified
 
 This view is split into focused sections — each is a standalone page. Read them in order, or jump to the question you care about.
 
 ## Sections
 
 1. [Executive Summary](./executive-summary.md) — The Environment in Brief · Overall Posture
-2. [What Needs Attention](./what-needs-attention.md) — Highest-Priority Issues
-3. [Key Decisions Required](./key-decisions-required.md) — Decisions for Leadership
-4. [Strategic Risks](./strategic-risks.md) — Business & Security Risks
-5. [Cost & Efficiency Signals](./cost-and-efficiency.md) — Where the Money Goes · Efficiency Opportunities
-6. [Recommended Next Actions](./recommended-next-actions.md) — Near-Term Actions
-7. [Important Unknowns](./important-unknowns.md) — Gaps Leadership Should Know
-8. [Evidence Appendix](./evidence-appendix.md) — Key Entities · Evidence
+2. [Key Questions Answered](./key-questions-answered.md)
+3. [What Needs Attention](./what-needs-attention.md) — Highest-Priority Issues
+4. [Key Decisions Required](./key-decisions-required.md) — Decisions for Leadership
+5. [Recommended Next Actions](./recommended-next-actions.md) — Near-Term Actions
+6. [Strategic Risks](./strategic-risks.md) — Business & Security Risks
+7. [Cost & Efficiency Signals](./cost-and-efficiency.md) — Where the Money Goes · Efficiency Opportunities
+8. [Important Unknowns](./important-unknowns.md) — Gaps Leadership Should Know
+9. [Evidence Appendix](./evidence-appendix.md) — Key Entities · Evidence

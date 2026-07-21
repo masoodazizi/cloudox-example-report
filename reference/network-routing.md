@@ -10,7 +10,7 @@
 
 Configured VPC route-table routes (control-plane config). Shows where a route table *directs* traffic for a destination — this is route-level connectivity only, not end-to-end reachability (which also depends on security groups, NACLs, and the target's state).
 
-_Displaying all **39** row(s) (no rows omitted)._
+_Displaying all **40** row(s) (no rows omitted)._
 
 _Sorted by account, then region, then route table (stable, not by risk)._
 
@@ -25,6 +25,7 @@ _Sorted by account, then region, then route table (stable, not by risk)._
 | 110019496666 | us-east-1 | rtb-0a098578f63800228 | vpc-0563bd6a8386b6eb8 (main route table) | 172.31.0.0/16 | local | local | active | Verified | `rtb-0a098578f63800228` |
 | 110019496666 | us-east-1 | rtb-0a098578f63800228 | vpc-0563bd6a8386b6eb8 (main route table) | 0.0.0.0/0 | internet gateway | igw-00ed21b9a0e6596a8 | active | Verified | `rtb-0a098578f63800228`, `igw-00ed21b9a0e6596a8` |
 | 105769365151 | eu-central-1 | cloudox-demo-atlas-dev-private-rt (rtb-009215bffcfd9f9a0) | vpc-0a4d44a07f48d7ca0 · 2 subnet(s) | 10.30.0.0/16 | local | local | active | Verified | `rtb-009215bffcfd9f9a0` |
+| 105769365151 | eu-central-1 | cloudox-demo-atlas-dev-private-rt (rtb-009215bffcfd9f9a0) | vpc-0a4d44a07f48d7ca0 · 2 subnet(s) | 0.0.0.0/0 | NAT gateway | cloudox-demo-atlas-dev-nat (nat-05bf82584b9610324) | active | Verified | `rtb-009215bffcfd9f9a0`, `nat-05bf82584b9610324` |
 | 105769365151 | eu-central-1 | cloudox-demo-atlas-dev-private-rt (rtb-009215bffcfd9f9a0) | vpc-0a4d44a07f48d7ca0 · 2 subnet(s) | pl-66a5400f | gateway | vpce-0f376e51c370a0f95 | active | Verified | `rtb-009215bffcfd9f9a0`, `vpce-0f376e51c370a0f95` |
 | 105769365151 | eu-central-1 | cloudox-demo-atlas-dev-private-rt (rtb-009215bffcfd9f9a0) | vpc-0a4d44a07f48d7ca0 · 2 subnet(s) | pl-6ea54007 | gateway | vpce-0e75224f50dddfb8d | active | Verified | `rtb-009215bffcfd9f9a0`, `vpce-0e75224f50dddfb8d` |
 | 105769365151 | eu-central-1 | cloudox-demo-atlas-dev-public-rt (rtb-04732cf316d6c4917) | vpc-0a4d44a07f48d7ca0 · 2 subnet(s) | 10.30.0.0/16 | local | local | active | Verified | `rtb-04732cf316d6c4917` |

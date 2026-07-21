@@ -10,43 +10,54 @@
 
 ## Key Workloads
 
-The environment centres on a small set of identified workloads spread across three AWS accounts, all anchored in **eu-central-1**. The production API workload carries a confirmed resilience concern at its data tier that warrants attention.
+Five workloads are identified across this environment, spanning production, development, and sandbox contexts — all anchored in `eu-central-1`. The production API carries a notable resilience concern that warrants attention before any availability commitments are made.
 
 ### Significant Workloads
 
-Five workloads have been identified across three accounts:
+The following workloads are recognised in the environment:
 
-| Friendly Name | Workload ID | Account | Region | Confidence |
-|---|---|---|---|---|
-| Cloudox | `cloudox` | 122122642149 | eu-central-1 | Verified |
-| Cloudox Demo Atlas Prod API | `cloudox-demo-atlas-prod-api` | 122122642149 | eu-central-1 | Likely |
-| Cloudox Demo Atlas Dev | `cloudox-demo-atlas-dev` | 105769365151 | eu-central-1 | Likely |
-| Cloudox Demo Atlas Dev API | `cloudox-demo-atlas-dev-api` | 105769365151 | eu-central-1 | Likely |
-| Cloudox Demo Sandbox Scratch | `cloudox-demo-sandbox-scratch` | 161388682021 | eu-central-1 | Assumed |
+| Friendly Name | Account | Region | Confidence |
+|---|---|---|---|
+| Cloudox | `122122642149` | eu-central-1 | Verified |
+| Cloudox Demo Atlas Prod API | `122122642149` | eu-central-1 | Likely |
+| Cloudox Demo Atlas Dev | `105769365151` | eu-central-1 | Likely |
+| Cloudox Demo Atlas Dev API | `105769365151` | eu-central-1 | Likely |
+| Cloudox Demo Sandbox Scratch | `161388682021` | eu-central-1 | Assumed |
 
-The pattern suggests a **prod / dev / sandbox** lifecycle split across separate AWS accounts. **Cloudox** (account `122122642149`) is the only Verified workload; the remaining four are Likely or Assumed based on graph inference.
+**Cloudox** (`cloudox`) is the only Verified workload — its composition is well-evidenced in the graph. The Atlas Dev and Prod API workloads are Likely, meaning their boundaries are graph-derived but not fully confirmed. **Cloudox Demo Sandbox Scratch** (`cloudox-demo-sandbox-scratch`) carries an Assumed confidence; treat its classification as provisional until validated with the environment owner.
 
-> **Confidence note:** 761 resources carry no Environment / Stage / Tier tag, so workload boundaries and classifications rely on inference rather than explicit tagging. Treat Likely and Assumed workload identities with appropriate caution.
+The environment spans at least three AWS accounts (`122122642149`, `105769365151`, `161388682021`). Internet-facing entry points are present: two API Gateway endpoints (`https://gfwaiva01f.execute-api.eu-central-1.amazonaws.com`, `https://xdmn5ldmif.execute-api.eu-central-1.amazonaws.com`) and internet gateways in both `eu-central-1` and `us-east-1` are in scope as evidence references, though their precise workload assignments are covered in other sections.
 
 ### Composition & Tiers
 
-Evidence points to API-tier components backed by managed datastores:
+The Atlas workloads are built on ECS. The dev environment runs on the ECS cluster `cloudox-demo-atlas-dev` (`arn:aws:ecs:eu-central-1:105769365151:cluster/cloudox-demo-atlas-dev`), with the service `cloudox-demo-atlas-dev-api` (`arn:aws:ecs:eu-central-1:105769365151:service/cloudox-demo-atlas-dev/cloudox-demo-atlas-dev-api`) handling the API tier. The production counterpart is `cloudox-demo-atlas-prod-api` (`arn:aws:ecs:eu-central-1:122122642149:service/cloudox-demo-atlas-prod/cloudox-demo-atlas-prod-api`).
 
-- **API endpoints** are present for both the dev workload (`https://gfwaiva01f.execute-api.eu-central-1.amazonaws.com`) and the prod workload (`https://xdmn5ldmif.execute-api.eu-central-1.amazonaws.com`), both served via Amazon API Gateway in eu-central-1 and reachable from the internet.
-- **DynamoDB tables** back each environment:
-  - Dev: `cloudox-demo-atlas-dev-items` (account `105769365151`, eu-central-1)
-  - Prod: `cloudox-demo-atlas-prod-items` (account `122122642149`, eu-central-1)
-  - Sandbox: `cloudox-demo-sandbox-scratch` (account `161388682021`, eu-central-1)
-- **Internet gateways** are present across multiple accounts and regions (eu-central-1 and us-east-1), indicating that at least some VPC-hosted resources have internet egress or ingress paths. The us-east-1 gateways (`igw-00ed21b9a0e6596a8` in account `110019496666`, `igw-0567575921f471548` in account `105769365151`, `igw-0cff0d66b4fd90803` in account `122980216815`) and the eu-central-1 gateway (`igw-0d14f1dd4e54d5906` in account `110019496666`) are in scope; their exact attachment and routing are covered in network-focused sections.
+Data tiers are evidenced by DynamoDB tables:
+- **Dev account (`105769365151`):** `cloudox-demo-atlas-dev-items` (`arn:aws:dynamodb:eu-central-1:105769365151:table/cloudox-demo-atlas-dev-items`)
+- **Prod account (`122122642149`):** `cloudox-demo-atlas-prod-items` (`arn:aws:dynamodb:eu-central-1:122122642149:table/cloudox-demo-atlas-prod-items`)
+- **Sandbox account (`161388682021`):** `cloudox-demo-sandbox-events` and `cloudox-demo-sandbox-scratch` (`arn:aws:dynamodb:eu-central-1:161388682021:table/cloudox-demo-sandbox-events`, `arn:aws:dynamodb:eu-central-1:161388682021:table/cloudox-demo-sandbox-scratch`)
+
+> **Note:** 781 resources have no Environment / Stage / Tier tag and rely on inference for classification. Workload boundaries and tier assignments for untagged resources should be treated as approximate.
 
 ### Key Dependencies
 
-One dependency concern has been identified and is **Verified**:
+> **Resilience concern — Priority 3 (Verified)**
 
-> **Critical dependency — `cloudox-demo-atlas-prod-pg`** (`dependency_concern:architecture:cloudox-demo-atlas-prod-pg`)
->
-> The **Cloudox Demo Atlas Prod API** workload (`cloudox-demo-atlas-prod-api`, account `122122642149`) depends on the DBInstance **`cloudox-demo-atlas-prod-pg`**. This datastore is not configured for Multi-AZ. A single availability-zone failure would take the production data tier offline, directly impacting the dependent workload.
->
-> **Recommended action:** Confirm whether Multi-AZ is enabled and whether automated backups are in place. Review how the Cloudox Demo Atlas Prod API handles a data-tier failure — for example, whether it degrades gracefully or fails hard.
+The **Cloudox Demo Atlas Prod API** workload (`cloudox-demo-atlas-prod-api`, account `122122642149`, eu-central-1) depends on the RDS DB instance **`cloudox-demo-atlas-prod-pg`**, which is not configured for Multi-AZ. A single availability zone failure would take the production data tier offline for this workload.
 
-The account and region of `cloudox-demo-atlas-prod-pg` itself could not be confirmed from available evidence (confidence: Unknown for that resource). The dependency relationship and its impact are nonetheless Verified through graph analysis.
+- **Impact:** Single-AZ datastore in a workload's critical path.
+- **Recommended action:** Confirm whether Multi-AZ is enabled and backups are in place; review how the dependent workload handles a data-tier failure.
+- **Confidence on the dependency:** Verified. The resilience posture of `cloudox-demo-atlas-prod-pg` itself (account, region, current backup configuration) is not fully evidenced in this section's package — confirm directly with the environment owner.
+
+No other dependency concerns are recorded in this section's package.
+
+### Changes Since Previous Snapshot
+
+Between the snapshots at `2026-07-20T11:50` and `2026-07-20T12:54` (UTC), several observed changes affected the Atlas workloads:
+
+- **`cloudox-demo-atlas-dev-api`** (ECS Service): desired and running task counts increased from 1 → 2. The parent cluster **`cloudox-demo-atlas-dev`** correspondingly shows running tasks rising from 1 → 2.
+- **`cloudox-demo-atlas-prod-api`** (ECS Service): desired and running task counts also increased from 1 → 2.
+- Component membership within the **`cloudox-demo-atlas-dev`** workload shifted: one `part_of` / `part_of_workload` relationship (`96f9f34fd1594394a800f7160c83bc59`) was removed, and two new ones (`3869aa71501448f98b6ced83e40d4235`, `9c2924f01ffd402eaafca2bdf2d04d67`) were added.
+- A new `part_of_workload` relationship (`7aa166e18de34efd8699a663e13265f1`) was added to the **Cloudox** workload.
+
+Additional related changes exist beyond what is summarised here — see the Environment Evolution page for the full picture.

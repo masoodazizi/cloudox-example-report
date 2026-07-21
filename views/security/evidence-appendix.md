@@ -10,13 +10,15 @@
 
 ## Evidence Appendix
 
-> **Confidence: Unknown** — No intelligence items or provider-native evidence references were available for this section. The entity reference below is derived from discovery metadata only. Treat this appendix as a traceability index, not a validated evidence set.
+> **Confidence: Unknown** — This appendix surfaces the provider-native evidence and key entities underpinning the Security view. Confidence is marked Unknown at the section level because not all entities carry full analytical context; individual entity confidence ratings are noted inline below.
 
-This appendix lists the key security entities identified across the in-scope accounts and provides a reference point for tracing findings discussed elsewhere in this view back to their source resources. No provider-native evidence items (e.g. AWS Config rules, Security Hub findings, CloudTrail records) were present in the package for this section.
+This appendix is a reference layer for Security & Governance teams. It maps the raw provider identifiers to the friendly names used throughout the Security view, and records the evidence references that ground each finding. Use it to validate claims, raise access requests, or cross-reference with your own tooling.
+
+---
 
 ### Entity Reference
 
-The following entities were identified during discovery. Confidence ratings reflect the reliability of the entity identification itself, not any associated security assessment.
+The following accounts and resources were identified as key entities for this view. Confidence ratings reflect the quality of provider-derived evidence for each entity.
 
 #### Accounts
 
@@ -28,38 +30,65 @@ The following entities were identified during discovery. Confidence ratings refl
 | Workload Prod Account | `122122642149` | Verified |
 | Log Archive Account | `122980216815` | Likely |
 
-> **Note on Log Archive Account (`122980216815`):** Confidence is rated **Likely** rather than Verified. Security & Governance teams should confirm this account's role and ensure log delivery and access controls are validated independently.
+> **Note (Log Archive Account):** The Log Archive Account (`122980216815`) carries a **Likely** confidence rating — its role as a log archive has been inferred from naming and the presence of the access-logs bucket, but has not been independently confirmed via an authoritative account classification source.
+
+#### Public Subnets (eu-central-1)
+
+Five public subnets were identified across three accounts. Public subnets are directly relevant to exposure analysis.
+
+| Friendly Name | Subnet ID | Account | Confidence |
+|---|---|---|---|
+| Public Subnet (b065) | `subnet-065f522206524ab12` | Workload Dev (`105769365151`) | Verified |
+| Public Subnet (d725) | `subnet-0f64d71c952a7898a` | Workload Dev (`105769365151`) | Verified |
+| Public Subnet (5a8a) | `subnet-016c22941a019a137` | Workload Prod (`122122642149`) | Verified |
+| Public Subnet (94f8) | `subnet-013a24d318ed6f3d0` | Workload Prod (`122122642149`) | Verified |
+| Public Subnet (244e) | `subnet-029e2cceb3d0beff7` | Sandbox Ma (`161388682021`) | Verified |
 
 #### Security Groups
 
-| Friendly Name | Resource ID | Account | Region | Confidence |
+| Friendly Name | Security Group ID | Account | Region | Confidence |
 |---|---|---|---|---|
-| Cloudox Demo Sandbox Sg Permissive | `sg-054446d655de1ee7f` | Sandbox Ma Account (`161388682021`) | eu-central-1 | Verified |
-| Cloudox Demo Atlas Prod Sg ALB | `sg-06f2b4190bf01d261` | Workload Prod Account (`122122642149`) | eu-central-1 | Verified |
+| Cloudox Demo Atlas Dev Sg ECS | `sg-0d6a48061beb72eae` | Workload Dev (`105769365151`) | eu-central-1 | Verified |
+| Cloudox Demo Atlas Prod Sg ALB | `sg-06f2b4190bf01d261` | Workload Prod (`122122642149`) | eu-central-1 | Verified |
 
-> The name **Cloudox Demo Sandbox Sg Permissive** (`sg-054446d655de1ee7f`) warrants attention from a governance perspective — the "Permissive" designation in the resource name suggests broad ingress or egress rules. Security teams should cross-reference this entity with the network exposure findings covered in the relevant section of this view.
-
-#### Public Subnets
-
-Five public subnets were identified across three accounts, all in `eu-central-1`.
-
-| Subnet ID | Account | Region | Confidence |
-|---|---|---|---|
-| `subnet-016c22941a019a137` | Workload Prod Account (`122122642149`) | eu-central-1 | Verified |
-| `subnet-013a24d318ed6f3d0` | Workload Prod Account (`122122642149`) | eu-central-1 | Verified |
-| `subnet-0f64d71c952a7898a` | Workload Dev Account (`105769365151`) | eu-central-1 | Verified |
-| `subnet-065f522206524ab12` | Workload Dev Account (`105769365151`) | eu-central-1 | Verified |
-| `subnet-029e2cceb3d0beff7` | Sandbox Ma Account (`161388682021`) | eu-central-1 | Verified |
-
-All five subnets are classified as public. Security & Governance teams should verify that resources placed in these subnets are intentionally internet-reachable and that appropriate security group and network ACL controls are in place.
+---
 
 ### Evidence
 
-No provider-native evidence references (e.g. Security Hub findings, Config rule evaluations, CloudTrail events) were present in this section's package. This is a material gap for a security view — the entities above cannot be assessed for compliance posture, misconfiguration, or active findings from this section alone.
+The following provider-native evidence references underpin findings in this view. These identifiers can be used directly in AWS Console, CLI, or audit tooling for independent verification.
 
-Governance teams should treat the absence of evidence references here as a signal to validate that:
-- AWS Security Hub (or equivalent) is enabled and aggregating findings across all four accounts.
-- AWS Config is recording in all relevant regions and accounts.
-- Log delivery to the Log Archive Account (`122980216815`) is confirmed and auditable.
+#### IAM Roles
 
-Findings and evidence discussed in other sections of this view should be cross-referenced against the entity identifiers listed above.
+| Friendly Name | ARN | Role ID | Account | Confidence |
+|---|---|---|---|---|
+| cloudox-demo-sandbox-ci-admin | `arn:aws:iam::161388682021:role/cloudox-demo-sandbox-ci-admin` | `AROAAAAAAO5VMOEOZ70IX` | Sandbox Ma (`161388682021`) | Verified |
+| cloudox-demo-atlas-dev-ingest-sfn | `arn:aws:iam::105769365151:role/cloudox-demo-atlas-dev-ingest-sfn` | `AROAAAAAAIJ1CH5G3USEC` | Workload Dev (`105769365151`) | Verified |
+| cloudox-demo-atlas-prod-dr-replicator | `arn:aws:iam::122122642149:role/cloudox-demo-atlas-prod-dr-replicator` | `AROAAAAACFUR6W6I0LR0G` | Workload Prod (`122122642149`) | Verified |
+
+#### Networking Resources
+
+| Resource Type | Friendly Name | ID | Account | Region |
+|---|---|---|---|---|
+| Elastic IP | cloudox-demo-atlas-dev-nat-eip | `eipalloc-083eada77de5498db` | Workload Dev (`105769365151`) | eu-central-1 |
+| Route Table | cloudox-demo-atlas-dev-private-rt | `rtb-009215bffcfd9f9a0` | Workload Dev (`105769365151`) | eu-central-1 |
+
+#### Storage
+
+| Resource Type | Friendly Name | Account | Region |
+|---|---|---|---|
+| S3 Bucket | `cloudox-demo-access-logs-122980216815-eu-central-1` | Log Archive (`122980216815`) | eu-central-1 |
+
+---
+
+### Changes Since Previous Snapshot
+
+The following security-relevant changes were observed between the previous snapshot (2026-07-20T11:50 UTC) and the current snapshot (2026-07-20T12:54 UTC). All changes listed here are **Observed** (provider-derived).
+
+- **Exposure change — action required:** Security group `sg-0d6a48061beb72eae` (Cloudox Demo Atlas Dev Sg ECS, Workload Dev) **became reachable from the internet** this period. Its `ip_permissions` were also modified. Security & Governance teams should validate whether this internet exposure is intentional and review the updated inbound rules.
+- **New IAM roles added (×3):** Three IAM roles were created across accounts — `cloudox-demo-sandbox-ci-admin` (Sandbox Ma, `AROAAAAAAO5VMOEOZ70IX`), `cloudox-demo-atlas-dev-ingest-sfn` (Workload Dev, `AROAAAAAAIJ1CH5G3USEC`), and `cloudox-demo-atlas-prod-dr-replicator` (Workload Prod, `AROAAAAACFUR6W6I0LR0G`). Privilege scope and trust policies for these roles should be reviewed, particularly the CI admin role in the Sandbox account.
+- **New Elastic IP allocated:** `eipalloc-083eada77de5498db` (cloudox-demo-atlas-dev-nat-eip) was added in the Workload Dev account (eu-central-1).
+- **Route table modified:** `rtb-009215bffcfd9f9a0` (cloudox-demo-atlas-dev-private-rt) had both its associations and routes changed — relevant to understanding current traffic paths from private subnets.
+- **Public subnet IP counts decreased:** `subnet-065f522206524ab12` (Dev, 251→249) and `subnet-013a24d318ed6f3d0` (Prod, 250→249) each lost available IPs, indicating new resources were placed in public subnets.
+- **Access-logs S3 bucket configuration changed:** `cloudox-demo-access-logs-122980216815-eu-central-1` (Log Archive account) had changes to encryption, lifecycle, public access block, and versioning settings. Governance teams should confirm these changes align with log retention and access control policy.
+
+> **Note:** 13 additional related changes exist beyond those listed here, and `more_in_evolution` is true. See the **Environment Evolution** page for the complete change record.

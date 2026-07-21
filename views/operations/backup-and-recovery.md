@@ -10,22 +10,20 @@
 
 ## Backup & Recovery Signals
 
-The most operationally significant finding here is a single-AZ database deployment with no standby — meaning a zone failure directly translates to downtime or potential data loss with no automatic failover path.
+The most operationally significant finding here is a single-AZ database instance with no standby — a zone failure would cause unplanned downtime and potential data loss with no automatic failover path.
 
 ### Backup Signals
 
-No backup configuration signals (snapshot schedules, retention policies, or backup vault associations) were found in this section's package for any resource. This is a coverage gap, not a confirmed absence — two meta-collectors that would broaden resource visibility were unavailable during discovery (see unknowns below), so backup configuration data for resources outside typed collector coverage may be missing.
+No backup configuration signals (snapshot schedules, retention policies, or backup vault associations) are present in this section's package for any resource. This is a coverage gap, not a confirmed absence — the Resource Explorer and Cloud Control meta-collectors were both unavailable during discovery, which limits visibility into long-tail resource types and may mean backup configurations exist but were not captured. Treat this as an observability gap requiring manual validation.
 
 ### Recovery Readiness
 
-One recovery posture issue was identified:
+One recovery risk is confirmed:
 
-| Resource | Issue | Impact | Recommended Action |
+| Resource | Type | Finding | Impact |
 |---|---|---|---|
-| `cloudox-demo-atlas-prod-pg` | No Multi-AZ standby configured | Reduced availability; zone failure can cause downtime or data loss | Evaluate enabling a Multi-AZ standby for resilience |
+| `cloudox-demo-atlas-prod-pg` | DBInstance | No Multi-AZ standby configured | Reduced availability; zone failure causes downtime or data loss |
 
-**`cloudox-demo-atlas-prod-pg`** (`modernization_opportunity:architecture:cloudox-demo-atlas-prod-pg`) is a DBInstance deployed in a single Availability Zone with no Multi-AZ standby. In the event of an AZ-level failure, there is no automatic promotion of a standby replica — recovery would depend on restoring from a snapshot or manual intervention, both of which introduce meaningful RTO and RPO exposure.
+**`cloudox-demo-atlas-prod-pg`** (`modernization_opportunity:architecture:cloudox-demo-atlas-prod-pg`) is a single-AZ datastore with no standby replica. If the availability zone hosting this instance experiences a failure, there is no automatic failover target — recovery would depend on a manual restore from the most recent snapshot, introducing both RTO and RPO risk. The recommended action is to evaluate enabling a Multi-AZ standby for this instance.
 
-This is flagged as a modernization opportunity (priority 4) rather than an active incident, but it represents a structural gap in the recovery posture that warrants evaluation, particularly for a production workload (as the `-prod-` naming suggests).
-
-> **Coverage note:** Resource Explorer and Cloud Control meta-collectors were both unavailable during this discovery run. Long-tail resource types and a full cross-account breadth check could not be performed. Recovery readiness signals for resource types outside typed collector coverage may be incomplete.
+> **Coverage note (Likely confidence):** Two meta-collectors were unavailable during this discovery run — Resource Explorer and Cloud Control. This means the breadth of AWS resources visible to CloudoX could not be fully cross-checked, and long-tail resource types are limited to typed collector coverage. Additional datastores or backup-relevant resources may exist that are not reflected here. Validate directly in the AWS console or via CLI before treating this as a complete inventory.

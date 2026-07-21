@@ -6,27 +6,24 @@
 
 ---
 
-> _Part of the [Executive View](./README.md) · Audience: CTO / Engineering leadership · Confidence: Likely_
+> _Part of the [Executive View](./README.md) · Audience: CTO / Engineering leadership · Confidence: Verified_
 
 ## Key Decisions Required
 
 ### Decisions for Leadership
 
-Four gaps in observability and governance stand out and each requires a deliberate leadership decision — not just a remediation ticket.
+The environment carries a confirmed spend of **$80.28** across completed billing periods, with **8 architectural cost drivers** and **1 optimization candidate** already identified. Three areas warrant leadership attention before the next planning cycle.
 
-**1. Security Hub is not enabled (or not discoverable)**
-No evidence of Security Hub enablement was found across the environment. Without it, there is no consolidated security posture score, no automated standards compliance check (CIS, AWS Foundational Security), and no single pane for cross-account findings. Leadership should decide: adopt Security Hub as the security baseline now, or document an explicit alternative control.
+**1. Resolve the tagging gap before cost attribution becomes unmanageable.**
+781 resources carry no Environment, Stage, or Tier tag and are classified by inference rather than explicit ownership. Without authoritative tags, cost accountability, environment-level budgeting, and incident blast-radius analysis all depend on heuristics. A tagging policy with enforcement (e.g., AWS Config rules or SCP guardrails) is a decision that needs an owner and a deadline.
 
-**2. 761 resources carry no Environment / Stage / Tier tag**
-Classification of these resources relies on inference rather than authoritative tagging. This directly impairs cost allocation, blast-radius analysis, and change-control decisions (e.g., "is this production?"). A tagging policy with enforcement — via AWS Config rules or Service Control Policies — needs an owner and a deadline.
+**2. Address open security group exposure.**
+Three security groups — across two accounts in eu-central-1 — are present in the evidence set and should be reviewed for overly permissive ingress rules. Decisions on scope reduction or compensating controls belong with engineering leadership, not individual teams, to ensure consistent risk tolerance is applied.
 
-**3. Cost visibility is switched off**
-Cost Explorer collection is disabled (`CLOUDOX_COST__ENABLED=false`). Spend figures are therefore unavailable; the environment carries 7 identified architectural cost drivers but no dollar attribution can be confirmed. Leadership should decide whether to enable cost collection so that the next run can surface actual spend, anomalies, and optimisation candidates. Until then, financial exposure from those drivers is unquantified.
+**3. Decide on the ~22% unassociated spend.**
+Roughly one-fifth of spend is in services CloudoX cannot map to discovered architecture. This is reported as unassociated rather than attributed. Leadership should decide whether to invest in tagging/CUR enrichment to close this visibility gap, or accept the blind spot. Until resolved, cost-reduction targets and architectural decisions rest on an incomplete picture.
 
-**4. No utilisation metrics — right-sizing is blind**
-CloudWatch utilisation data is not collected in this version. Idle or over-provisioned resources cannot be identified from usage evidence alone. If cost optimisation is a priority, a decision is needed on how to close this gap — either through a future CloudoX capability or a parallel tooling approach.
+**Supporting context — what is not yet answerable:**
+Right-sizing and idle-resource decisions cannot be made today because CloudWatch utilization metrics are not collected in this version. The 1 optimization candidate identified is based on architectural pattern analysis, not measured usage. Committing to right-sizing actions before utilization data is available carries risk of over-reduction.
 
-**Existing governance signals worth noting**
-The environment does have an organisation-level CloudTrail trail (`cloudox-demo-org-trail-o-aaaapzvebq`) with an associated logging role, and CloudFormation StackSets org-admin delegation is in place. These indicate some baseline governance infrastructure is active — but the gaps above limit how much assurance that infrastructure can provide without the missing controls.
-
-> **Confidence: Likely** — findings are derived from discovered architecture. Spend figures and utilisation data are not available for this run; decisions 3 and 4 are based on confirmed collection gaps rather than cost or usage evidence.
+> **Confidence: Verified** — spend figures and security group evidence are provider-derived. The tagging gap count and unassociated spend percentage are drawn directly from discovery data. Utilization-based recommendations are explicitly out of scope for this version.

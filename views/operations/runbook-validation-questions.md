@@ -10,31 +10,25 @@
 
 ## Runbook / Validation Questions
 
-One open item requires owner confirmation before it can be closed. The check below is flagged **Assumed** — meaning the analysis identified a pattern that warrants human verification rather than a deterministic finding. No immediate automated remediation is recommended; the action is to confirm intent with the role owner.
+Two IAM roles in account `161388682021` carry administrative privileges and require owner confirmation before they can be treated as intentionally scoped. Neither has a recorded owner or documented justification in the current discovery data. Resolve these before treating the account's IAM posture as fully understood.
+
+> **Coverage note:** Resource Explorer and Cloud Control meta-collectors were unavailable during discovery. Long-tail resource types and AWS-visible breadth could not be cross-checked — the checks below reflect typed-collector coverage only. Additional roles or resources may exist outside this view's scope.
 
 ### Operational Checks
 
-The following prefix lists are present in `eu-central-1` and are referenced in the environment graph. They are AWS-managed and do not require operator action, but are recorded here for traceability:
+Both items below are **Assumed** confidence — CloudoX has observed the privilege level but cannot confirm intent without owner input. Treat them as open action items until validated.
 
-| Prefix List | ARN |
-|---|---|
-| pl-66a5400f | `arn:aws:ec2:eu-central-1:aws:prefix-list/pl-66a5400f` |
-| pl-6ea54007 | `arn:aws:ec2:eu-central-1:aws:prefix-list/pl-6ea54007` |
+| Role Friendly Name | Role ID (ref) | Account | Check Required |
+|---|---|---|---|
+| `cloudox-demo-sandbox-ci-admin` | `AROAAAAAAO5VMOEOZ70IX` | `161388682021` | Confirm admin privilege is intentional and role is actively owned |
+| `cloudox-demo-sandbox-unused-admin` | `AROAAAAADPCL3BVEXUDTH` | `161388682021` | Confirm admin privilege is intentional; name suggests possible disuse |
 
-> **Coverage gap:** Resource Explorer meta-collector was disabled or unavailable, so AWS-visible resource breadth could not be cross-checked. Cloud Control meta-collector was also disabled, limiting coverage of long-tail resource types to typed collector output. Operational checks in this section reflect only what typed collectors surfaced.
+The name `cloudox-demo-sandbox-unused-admin` is particularly worth prioritising — the "unused" prefix may indicate a role that was created for a temporary purpose and never decommissioned, though this cannot be confirmed from discovery data alone.
 
 ### Questions to Validate
 
-The single open validation question is in the **security** domain. It carries a significance score of 0.36 and does not require an immediate decision, but should be routed to the role owner for confirmation.
+Raise the following with the account owner or IAM administrator:
 
----
+1. **`cloudox-demo-sandbox-ci-admin` (ref: `AROAAAAAAO5VMOEOZ70IX`)** — Does this CI role require its current administrative privilege level, and who is the designated owner responsible for it? If the CI pipeline only needs scoped permissions, the privilege level should be reduced.
 
-**Confirm the scope of IAM role `cloudox-demo-sandbox-unused-admin`**
-`validation_question:security:cloudox-demo-sandbox-unused-admin`
-
-- **Affected resource:** IAM role `cloudox-demo-sandbox-unused-admin` (`AROAAAAADPCL3BVEXUDTH`) in account `161388682021` (global, no region)
-- **Question to resolve with owner:** Does IAM role `cloudox-demo-sandbox-unused-admin` require its current privilege level, and who owns it?
-- **Why this matters operationally:** The role name includes the token `unused-admin`, which may indicate it was created for a temporary purpose and never decommissioned, or that it is a standing break-glass role. Either way, an unowned administrative role is a recovery risk — if credentials are ever needed urgently and ownership is unclear, access paths may be blocked or, conversely, the role may be exercised without proper change control.
-- **Confidence:** Assumed — the analysis inferred this warrants review based on naming and privilege signals; the role's actual usage history and intent are not confirmed in this dataset.
-
-**Suggested action:** Contact the team responsible for account `161388682021` and confirm (a) whether the role is actively used, (b) who owns it, and (c) whether its administrative privileges are still required. If the role is genuinely unused, consider disabling or deleting it to reduce the standing attack surface.
+2. **`cloudox-demo-sandbox-unused-admin` (ref: `AROAAAAADPCL3BVEXUDTH`)** — Does this role require its current administrative privilege level, and who owns it? If it is genuinely unused, it represents an unattended high-privilege identity and should be reviewed for removal or restriction.

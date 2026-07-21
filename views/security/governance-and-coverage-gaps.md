@@ -6,53 +6,53 @@
 
 ---
 
-> _Part of the [Security View](./README.md) · Audience: Security & Governance teams · Confidence: Likely_
+> _Part of the [Security View](./README.md) · Audience: Security & Governance teams · Confidence: Verified_
 
 ## Governance & Coverage Gaps
 
-**Confidence: Likely** — Derived from graph evidence; some unknowns and collector limitations remain. Treat absences as potential gaps, not confirmed clean states.
+Two collector-level blind spots mean the full breadth of resources across this AWS Organization cannot be confirmed — a material concern for Security & Governance teams who need complete inventory to assess exposure. The gaps documented here are evidence-quality limitations, not policy failures, but they directly constrain what can be asserted with confidence about coverage.
 
-The most consequential finding for governance teams is that **no AWS Security Hub enablement was discovered** across the organisation. Combined with two disabled meta-collectors, the picture of what is actually running — and what controls are in place — is incomplete. These gaps should be resolved before drawing conclusions from any other section of this view.
+**Confidence: Verified** — derived from complete graph evidence for this domain.
 
 ### Org Guardrails
 
-The following accounts are in scope for this assessment (confidence as noted):
+Seven accounts are in scope across this organization: **Management Account** (`110319895932`), **Sandbox Ma Account** (`161388682021`), **Workload Dev Account** (`105769365151`), **Workload Prod Account** (`122122642149`), **Log Archive Account** (`122980216815`, Confidence: Likely), **Audit Account** (`110019496666`, Confidence: Likely), and **Platform Account** (`150982215529`, Confidence: Likely).
 
-| Account | Friendly Name | Confidence |
-|---|---|---|
-| 110319895932 | Management Account | Verified |
-| 161388682021 | Sandbox Ma Account | Verified |
-| 105769365151 | Workload Dev Account | Verified |
-| 122122642149 | Workload Prod Account | Verified |
-| 122980216815 | Log Archive Account | Likely |
-| 110019496666 | Audit Account | Likely |
-| 150982215529 | Platform Account | Likely |
+An org-level CloudTrail trail (`arn:aws:cloudtrail:eu-central-1:747208208289103:trail/cloudox-demo-org-trail-o-aaaapzvebq`) is present in the Management Account, with a dedicated logging role (`arn:aws:iam::110319895932:role/cloudox-demo-org-trail-logs`). This provides a baseline audit log signal across the organization. A CloudFormation StackSets service-linked role (`arn:aws:iam::110319895932:role/aws-service-role/stacksets.cloudformation.amazonaws.com/AWSServiceRoleForCloudFormationStackSetsOrgAdmin`) is also present in the Management Account, indicating centrally managed stack deployments are in use.
 
-An organisation-level CloudTrail trail (`cloudox-demo-org-trail-o-aaaapzvebq`, `arn:aws:cloudtrail:eu-central-1:110319895932:trail/cloudox-demo-org-trail-o-aaaapzvebq`) is present in the Management Account (110319895932), with a dedicated delivery role (`arn:aws:iam::110319895932:role/cloudox-demo-org-trail-logs`). This indicates that API-level audit logging is configured at the org level — a foundational guardrail.
+In the **Sandbox Ma Account**, three IAM roles warrant governance attention:
+- `cloudox-demo-sandbox-ci-admin` (`arn:aws:iam::161388682021:role/cloudox-demo-sandbox-ci-admin`) — a CI role with admin-level naming; privilege scope should be validated.
+- `cloudox-demo-sandbox-unused-admin` (`arn:aws:iam::161388682021:role/cloudox-demo-sandbox-unused-admin`) — the name explicitly signals this role may be unused; it should be reviewed for removal.
+- `OrganizationAccountAccessRole` (`arn:aws:iam::161388682021:role/OrganizationAccountAccessRole`) — the standard cross-account access role created by AWS Organizations; its trust policy and usage should be confirmed as expected.
+- `cloudox-demo-sandbox-scratch-lambda` (`arn:aws:iam::161388682021:role/cloudox-demo-sandbox-scratch-lambda`) — a scratch/experimental Lambda execution role; confirm whether it is still needed.
 
-A CloudFormation StackSets service-linked role (`arn:aws:iam::110319895932:role/aws-service-role/stacksets.cloudformation.amazonaws.com/AWSServiceRoleForCloudFormationStackSetsOrgAdmin`) is present in the Management Account, suggesting that centralised infrastructure deployment via StackSets is in use. A corresponding StackSets execution role is present in the Sandbox Ma Account (`arn:aws:iam::161388682021:role/stacksets-exec-899a82a2cb437e970934262f85c7628a`), consistent with cross-account stack deployment.
+Security groups are present in both the **Workload Prod Account** (`sg-0459201826f8de5b3`, `sg-06f2b4190bf01d261`) and the **Workload Dev Account** (`sg-0d6a48061beb72eae`). Detailed rule-level exposure analysis for these groups is covered in the network exposure sections of this view.
 
-The `OrganizationAccountAccessRole` (`arn:aws:iam::161388682021:role/OrganizationAccountAccessRole`) is present in the Sandbox Ma Account. This is the standard AWS-vended break-glass role created when an account is added to an organisation; its continued existence and who can assume it warrants validation.
-
-**Security Hub — Unknown:** No Security Hub enablement was discovered in any account. **Confidence: Unknown.** This means there is no confirmed centralised aggregation of security findings (GuardDuty, Config, Inspector, etc.) visible to CloudoX. This is a material governance gap: either Security Hub is not enabled, or it exists in accounts or regions not reached by the current collection run. This must be validated directly. See `evidence_gap:security:no-security-hub-enablement-discovered`.
+Tag-based governance is materially weak: **only 1% of resources carry a configured cost-allocation tag** (`evidence_gap:cost:only-1-of-resources-carry-a-configured-cost-allocation-tag-so-tag-based-cost-allocation-is-not-yet-reliable`). For Security & Governance teams, this means resource ownership, environment classification, and data-sensitivity tagging are likely equally sparse — making automated policy enforcement or scoped access controls based on tags unreliable at this time. **Confidence: Unknown** on the full tagging posture.
 
 ### Coverage Gaps
 
-Three collector-level gaps limit the completeness of this assessment. Security and governance teams should treat the findings in all sections as a lower bound, not a complete inventory.
+Two collector-level gaps directly limit the completeness of this security view. Both carry **Confidence: Unknown** and require resolution before the inventory can be treated as authoritative.
 
-**1. Resource Explorer meta-collector disabled or unavailable** (`evidence_gap:coverage:resource-explorer-meta-collector-was-disabled-or-unavailable-aws-visible-breadth-could-not-be-cross-checked`)
+**1. Resource Explorer meta-collector was disabled or unavailable**
+(`evidence_gap:coverage:resource-explorer-meta-collector-was-disabled-or-unavailable-aws-visible-breadth-could-not-be-cross-checked`)
 
-AWS Resource Explorer was not available to cross-check the breadth of discovered resources. Resources present in AWS but not reached by typed collectors may be invisible to this view. The true attack surface and resource count could be larger than what is documented here.
+AWS Resource Explorer provides a cross-account, cross-region index of all AWS-visible resources. Because this collector was unavailable, CloudoX could not cross-check its typed collector results against what AWS itself reports. Resources that exist in AWS but fall outside typed collector coverage may be entirely absent from this view. For governance teams, this means the inventory used to assess exposure and access cannot be confirmed as complete.
 
-**2. Cloud Control meta-collector disabled** (`evidence_gap:coverage:cloud-control-meta-collector-was-disabled-long-tail-resource-types-are-limited-to-typed-collector-coverage`)
+**Recommended action:** Enable Resource Explorer in the Management Account and re-run discovery to validate inventory breadth.
 
-Long-tail resource types (those not covered by CloudoX's typed collectors) were not collected. Niche or newer AWS service types may be entirely absent from this assessment.
+**2. Cloud Control meta-collector was disabled**
+(`evidence_gap:coverage:cloud-control-meta-collector-was-disabled-long-tail-resource-types-are-limited-to-typed-collector-coverage`)
 
-**3. Cost-domain collector gaps** (noted for completeness)
+The Cloud Control API provides coverage for long-tail and newer AWS resource types that typed collectors do not explicitly handle. With this collector disabled, any such resource types in the environment are not represented in this view. This is a secondary gap relative to Resource Explorer but compounds the inventory completeness risk.
 
-CloudWatch utilisation metrics (`evidence_gap:cost:cloudox-does-not-collect-cloudwatch-utilization-metrics-in-this-version-idle-underutilized-or-right-sizing-recommendations-based-on-actual-usage-are-not-available`), Cost Explorer (`evidence_gap:cost:cost-explorer-collection-is-disabled-cloudox-cost-enabled-false-no-collect-costs-spend-figures-are-unavailable-the-analysis-below-is-derived-from-the-discovered-architecture-only`), and several resource-level cost attributes (`evidence_gap:cost:rds-read-replicas-rds-provisioned-iops-dynamodb-capacity-mode-direct-connect-and-s3-storage-classes-are-not-captured-by-the-current-collectors-so-cost-drivers-for-them-are-not-detected`) were not collected. These are primarily cost-domain gaps but are noted here because they indicate the collection run was not fully instrumented — reinforcing that coverage should not be assumed complete.
+**Recommended action:** Enable the Cloud Control meta-collector and re-run discovery to capture long-tail resource types.
 
-**Recommended actions for governance teams:**
-1. Validate Security Hub status directly in each account, particularly the Management Account (110319895932), Audit Account (110019496666), and Workload Prod Account (122122642149).
-2. Review who can assume `OrganizationAccountAccessRole` in the Sandbox Ma Account (161388682021) and confirm it is restricted to authorised principals only.
-3. Enable Resource Explorer and Cloud Control collection in a subsequent CloudoX run to close the inventory breadth gap before drawing environment-wide conclusions.
+**Additional cost-domain gaps with governance relevance:**
+
+While primarily cost-oriented, the following gaps also affect governance completeness — specifically the ability to understand what services are running and whether they are accounted for:
+
+- **~22% of spend is unassociated** with discovered architecture (`evidence_gap:cost:about-22-of-spend-is-in-services-cloudox-does-not-map-to-discovered-architecture-it-is-reported-as-unassociated-rather-than-force-fit`). From a governance perspective, this means roughly one-fifth of active AWS spend corresponds to services or resources not yet visible in this inventory — a potential blind spot for access and exposure analysis. **Confidence: Unknown.**
+- **RDS read replicas, RDS provisioned IOPS, DynamoDB capacity mode, Direct Connect, and S3 storage classes** are not captured by current collectors (`evidence_gap:cost:rds-read-replicas-rds-provisioned-iops-dynamodb-capacity-mode-direct-connect-and-s3-storage-classes-are-not-captured-by-the-current-collectors-so-cost-drivers-for-them-are-not-detected`). These resource sub-types may carry data or network exposure implications that are not currently surfaced. **Confidence: Unknown.**
+
+For a complete picture of environment-wide changes, see the Environment Evolution page.

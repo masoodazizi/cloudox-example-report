@@ -6,38 +6,38 @@
 
 ---
 
-> _Part of the [Executive View](./README.md) · Audience: CTO / Engineering leadership · Confidence: Likely_
+> _Part of the [Executive View](./README.md) · Audience: CTO / Engineering leadership · Confidence: Verified_
 
 ## What Needs Attention
 
-One critical security exposure demands an immediate decision from leadership. Beyond that, three medium-severity internet-facing configurations should be reviewed and confirmed as intentional.
+The most immediate concern is a cluster of internet-facing security group exposures across both production and development environments — none of which have been confirmed as intentional. No issues currently require an immediate leadership decision, but each exposure warrants engineering validation before it can be closed.
 
 ### Highest-Priority Issues
 
-**🔴 Critical — Action required: Sandbox security group open to SSH and PostgreSQL**
+Four verified security exposures are present across the Atlas workload (Confidence: Verified):
 
-The security group **cloudox-demo-sandbox-sg-permissive** (eu-central-1, sandbox account) allows unrestricted inbound traffic from the entire internet on port 22 (SSH) and port 5432 (PostgreSQL). This is a verified, critical-severity finding and the only item in this section flagged as requiring a leadership decision.
+| Resource | Environment | Open Port(s) | Impact |
+|---|---|---|---|
+| cloudox-demo-atlas-prod-alb | Production | — | Internet-facing load balancer |
+| cloudox-demo-atlas-prod-sg-edge | Production | 443 | World-open ingress (0.0.0.0/0) |
+| cloudox-demo-atlas-prod-sg-alb | Production | 80 | World-open ingress (0.0.0.0/0) |
+| cloudox-demo-atlas-dev-sg-ecs | Development | 80 | World-open ingress (0.0.0.0/0) |
 
-- **Risk:** Any actor on the internet can attempt to connect directly to SSH and a PostgreSQL database endpoint. If those services are reachable, the blast radius includes credential brute-force, data exfiltration, and lateral movement.
-- **Decision needed:** Confirm whether this exposure is intentional (e.g., a short-lived test resource). If not, engineering should restrict ingress to known IP ranges or remove the rules immediately.
+The production load balancer (`cloudox-demo-atlas-prod-alb`) is internet-facing, and its associated edge security group permits unrestricted inbound HTTPS (port 443). A second production security group (`cloudox-demo-atlas-prod-sg-alb`) allows unrestricted inbound HTTP (port 80) — unencrypted traffic to a production ALB warrants explicit confirmation. In the development environment, `cloudox-demo-atlas-dev-sg-ecs` similarly allows world-open HTTP ingress.
 
----
+**Recommended action for all four:** Engineering should confirm each exposure is intentional. Where it is not, ingress rules should be restricted to known CIDR ranges or the load balancer scheme changed to internal.
 
-**🟡 Medium — Confirm intent: Internet-facing production load balancer and associated security groups**
+Additionally, the environment has 75 IAM roles and no customer-managed IAM policies, which limits fine-grained permission control. This is noted as context; detailed IAM analysis is covered in the Security section of this view.
 
-Three additional findings relate to the production Atlas environment and are likely intentional for a public-facing service, but should be explicitly confirmed:
+> **Note:** 781 resources carry no Environment/Stage/Tier tag and rely on inference for classification. Tagging gaps may affect the accuracy of environment-level groupings above.
 
-| Resource | Exposure | Severity |
-|---|---|---|
-| **cloudox-demo-atlas-prod-alb** (load balancer) | Internet-facing scheme | Medium |
-| **cloudox-demo-atlas-prod-sg-edge** (security group) | World-open ingress on 443 (HTTPS) | Medium |
-| **cloudox-demo-atlas-prod-sg-alb** (security group) | World-open ingress on 80 (HTTP) | Medium |
+### Changes Since Previous Snapshot
 
-Ports 443 and 80 open to the internet on a production load balancer are a common and expected pattern for a public application. However, the HTTP (port 80) exposure is worth confirming — if it exists only to redirect to HTTPS, that is acceptable; if it serves content directly, it should be reviewed. No decision is flagged as required by the analysis, but leadership should ensure the team has documented these as approved intentional exposures.
+Since the previous snapshot (approximately one hour prior), one new internet exposure was introduced and one was resolved:
 
----
+- **New exposure:** `cloudox-demo-atlas-dev-sg-ecs` (`sg-0d6a48061beb72eae`) became reachable from the internet — this is the development ECS security group listed in the table above.
+- **Resolved exposure:** A previously internet-reachable security group (`sg-04fae132cfc68e91d`) is no longer exposed.
 
-**Notable gaps to be aware of**
+Also observed: Security Hub, SSM, and Step Functions entered the discovered scope; a new DR CloudFormation stack (`StackSet-cloudox-demo-workload-prod-dr`) and associated CloudWatch alarm (`cloudox-demo-atlas-prod-dr-bucket-size`) were added in us-east-1; and a new DynamoDB table (`cloudox-demo-sandbox-events`) appeared in the sandbox account. The 'cloudox-demo-atlas-dev' workload tentatively grew from 4 to 5 member resources, likely reflecting the new ECS security group.
 
-- **No AWS Security Hub enablement was discovered.** This means there is no centralised, continuous security findings service active (or its status could not be confirmed). This limits ongoing detection capability.
-- **761 resources carry no Environment/Stage/Tier tag** and rely on inference for classification. This makes it harder to assess blast radius, enforce environment-level controls, or allocate costs accurately. A tagging policy decision would address this at scale.
+More than 99 additional changes occurred in this snapshot period — see the Environment Evolution page for the full picture.

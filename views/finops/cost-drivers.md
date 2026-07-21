@@ -10,51 +10,61 @@
 
 ## Cost Drivers
 
-> **Confidence: Likely** — AWS Cost Explorer data collection is disabled for this run. All cost driver analysis is derived from discovered architecture. Dollar figures are not available; the patterns below describe resources and design choices known to carry charges. Validate against Cost Explorer or CUR before acting.
+The environment spans 833 resources across 6 of 7 known accounts and 2 regions (primary: eu-central-1, with a us-east-1 DR footprint). Four significant workloads drive the majority of architectural spend: **Cloudox Demo Atlas Prod API** (Workload Prod Account `122122642149`), **Cloudox Demo Atlas Dev** and **Cloudox Demo Atlas Dev API** (Workload Dev Account `105769365151`), and the **Cloudox** system (also in `122122642149`). A sandbox workload (**Cloudox Demo Sandbox Scratch**, `161388682021`) is also present. Tag coverage is critically low — only ~1% of resources carry a cost-allocation tag — so dollar attribution by workload or team is not yet reliable from tagging alone.
 
-The environment spans **807 resources across 7 accounts**, with **4 significant workloads** and 1 platform system identified. The primary cost-bearing activity is concentrated in two workload accounts — **Workload Dev Account** (`105769365151`) and **Workload Prod Account** (`122122642149`) — both running in `eu-central-1`. A **Sandbox Ma Account** (`161388682021`), **Audit Account** (`110019496666`), **Log Archive Account** (`122980216815`), and **Platform Account** (`150982215529`) carry supporting infrastructure that also generates spend.
+> **Confidence: Likely** — Drivers are derived from graph evidence (resource patterns and relationships). Exact dollar amounts require AWS Cost Explorer / CUR. Spend figures in this section reflect architectural cost patterns, not billed totals.
 
 ### Architectural Cost Drivers
 
-Three architectural patterns stand out as the primary structural cost drivers:
+**Compute: ECS + Lambda hybrid across prod and dev**
+Both the prod and dev workloads run ECS services alongside Lambda functions. The prod API (`arn:aws:ecs:eu-central-1:122122642149:service/cloudox-demo-atlas-prod/cloudox-demo-atlas-prod-api`) and its Lambda counterpart (`arn:aws:lambda:eu-central-1:122122642149:function:cloudox-demo-atlas-prod-api`) represent the primary production compute surface. The dev account mirrors this pattern with its own ECS cluster (`arn:aws:ecs:eu-central-1:105769365151:cluster/cloudox-demo-atlas-dev`), ECS service, and Lambda function. Running parallel ECS + Lambda stacks in both prod and dev means compute costs are effectively doubled at the workload level — a deliberate architectural choice worth validating against actual dev utilization.
 
-**1. Multi-account, multi-environment API workloads**
+**NAT Gateway: a persistent per-hour and data-processing charge in dev**
+A NAT Gateway (`nat-05bf82584b9610324`, `arn:aws:ec2:eu-central-1:105769365151:natgateway/nat-05bf82584b9610324`) with an associated Elastic IP (`eipalloc-083eada77de5498db`, named `cloudox-demo-atlas-dev-nat-eip`) is present in the Workload Dev Account. NAT Gateways carry a fixed hourly charge plus a per-GB data-processing fee regardless of traffic volume. In a dev environment this is a candidate for cost reduction — **requires validation** that the dev workload genuinely needs persistent outbound internet access at this scale.
 
-Two parallel API workloads run in separate accounts — **Cloudox Demo Atlas Dev API** (`cloudox-demo-atlas-dev-api`) in the Workload Dev Account and **Cloudox Demo Atlas Prod API** (`cloudox-demo-atlas-prod-api`) in the Workload Prod Account, both in `eu-central-1`. Each workload has its own API Gateway endpoint (`https://gfwaiva01f.execute-api.eu-central-1.amazonaws.com` and `https://xdmn5ldmif.execute-api.eu-central-1.amazonaws.com`) exposed to the internet. Running full parallel stacks for dev and prod is an intentional isolation choice, but it means fixed and per-request costs are duplicated across both environments. This is the expected cost of environment parity — worth confirming that the dev environment is not over-provisioned relative to its actual usage.
+**API Gateway: two public endpoints**
+Two API Gateway endpoints are observed: `https://gfwaiva01f.execute-api.eu-central-1.amazonaws.com` and `https://xdmn5ldmif.execute-api.eu-central-1.amazonaws.com`. API Gateway charges per request and for data transfer out; cost significance depends on call volume, which is not available in this version (no CloudWatch metrics collected).
 
-**2. Internet-facing infrastructure across multiple accounts and regions**
+**DynamoDB: two tables across sandbox**
+Two DynamoDB tables are present in the Sandbox Ma Account (`161388682021`): `cloudox-demo-sandbox-scratch` (`arn:aws:dynamodb:eu-central-1:161388682021:table/cloudox-demo-sandbox-scratch`) and `cloudox-demo-sandbox-events` (`arn:aws:dynamodb:eu-central-1:161388682021:table/cloudox-demo-sandbox-events`). DynamoDB capacity mode (on-demand vs. provisioned) is not captured by current collectors, so the cost profile of these tables cannot be fully assessed here.
 
-Four Internet Gateways are present across three accounts and two regions:
+**DR footprint in us-east-1 (Workload Prod Account)**
+A CloudFormation StackSet (`arn:aws:cloudformation:us-east-1:122122642149:stack/StackSet-cloudox-demo-workload-prod-dr-e27aba00-144f-1560-0aed-593e2d919536/acb94bf7-b3da-c32a-1613-327a5c08def2`) and a CloudWatch alarm (`cloudox-demo-atlas-prod-dr-bucket-size`, `arn:aws:cloudwatch:us-east-1:122122642149:alarm:cloudox-demo-atlas-prod-dr-bucket-size`) indicate an active DR configuration in us-east-1. Cross-region replication and standby resources carry ongoing storage and data-transfer costs. The alarm name references a bucket-size metric, suggesting S3 replication is part of this DR pattern.
 
-| Internet Gateway | Account | Region |
-|---|---|---|
-| `igw-00ed21b9a0e6596a8` | Audit Account (`110019496666`) | us-east-1 |
-| `igw-0d14f1dd4e54d5906` | Audit Account (`110019496666`) | eu-central-1 |
-| `igw-0567575921f471548` | Workload Dev Account (`105769365151`) | us-east-1 |
-| `igw-0cff0d66b4fd90803` | Log Archive Account (`122980216815`) | us-east-1 |
+**Platform and governance services now in scope**
+SecurityHub, SSM, and Step Functions have entered the discovered scope. These services carry usage-based charges (Security Hub findings ingestion, SSM parameter/session usage, Step Functions state transitions) that will appear in billing. Their cost weight depends on usage volume not yet measurable here.
 
-Internet Gateways themselves carry no hourly charge, but their presence indicates VPCs with public subnets, NAT Gateways, or data transfer paths that do. The presence of gateways in `us-east-1` for accounts whose workloads appear to be in `eu-central-1` (Workload Dev, Audit) is worth validating — unused or orphaned VPC infrastructure in a secondary region is a common source of quiet, ongoing spend. **Requires validation.**
-
-**3. DynamoDB tables across three accounts**
-
-Three DynamoDB tables are identified:
-
-| Table | Account | Environment |
-|---|---|---|
-| `cloudox-demo-atlas-dev-items` (`arn:aws:dynamodb:eu-central-1:105769365151:table/cloudox-demo-atlas-dev-items`) | Workload Dev | Dev |
-| `cloudox-demo-atlas-prod-items` (`arn:aws:dynamodb:eu-central-1:122122642149:table/cloudox-demo-atlas-prod-items`) | Workload Prod | Prod |
-| `cloudox-demo-sandbox-scratch` (`arn:aws:dynamodb:eu-central-1:161388682021:table/cloudox-demo-sandbox-scratch`) | Sandbox Ma | Sandbox |
-
-DynamoDB cost depends heavily on capacity mode (on-demand vs. provisioned) and actual read/write throughput — neither is captured in this run. The sandbox table (`cloudox-demo-sandbox-scratch`) in the **Cloudox Demo Sandbox Scratch** workload (`cloudox-demo-sandbox-scratch`) is a candidate for review: sandbox resources left running at provisioned capacity can accumulate unnecessary spend. **Requires validation.**
+**Log Archive Account**
+The Log Archive Account (`122980216815`) is in scope. Centralized logging architectures typically accumulate S3 storage costs over time; S3 storage classes are not captured by current collectors, so the cost profile is not assessable here.
 
 ### Service & Resource Drivers
 
-**API Gateway** is a direct cost driver for both the dev and prod workloads, with charges accruing per API call and per GB of data transfer out to the internet. Both endpoints are publicly accessible (`internet`-facing), meaning all external traffic contributes to data transfer costs.
+| Resource / Service | Account | Region | Cost Pattern | Validation Needed? |
+|---|---|---|---|---|
+| ECS Service (prod API) | Workload Prod `122122642149` | eu-central-1 | Fargate/EC2 task hours | No — production |
+| ECS Service (dev API) | Workload Dev `105769365151` | eu-central-1 | Fargate/EC2 task hours | **Yes** — dev utilization |
+| Lambda (prod API) | Workload Prod `122122642149` | eu-central-1 | Invocation + duration | No — production |
+| Lambda (dev API) | Workload Dev `105769365151` | eu-central-1 | Invocation + duration | **Yes** — dev utilization |
+| Lambda (sandbox scratch) | Sandbox Ma `161388682021` | eu-central-1 | Invocation + duration | **Yes** — sandbox |
+| NAT Gateway (dev) | Workload Dev `105769365151` | eu-central-1 | Hourly + per-GB | **Yes** — dev necessity |
+| Elastic IP (dev NAT) | Workload Dev `105769365151` | eu-central-1 | Idle EIP charge if unattached | **Yes** — confirm attached |
+| API Gateway (×2) | Multiple | eu-central-1 | Per-request + data-out | Volume unknown |
+| DynamoDB (sandbox ×2) | Sandbox Ma `161388682021` | eu-central-1 | Capacity mode unknown | **Yes** — capacity mode |
+| DR StackSet + S3 alarm | Workload Prod `122122642149` | us-east-1 | Storage + replication | No — intentional DR |
+| SecurityHub / SSM / Step Functions | Multiple | — | Usage-based | Monitor going forward |
 
-**DynamoDB** drives cost through storage, read/write capacity units, and (if enabled) features such as point-in-time recovery or global tables. Without capacity mode data, it is not possible to determine whether the tables are optimally configured — this is a gap to close in Cost Explorer or via a targeted collector run.
+**Unassociated spend:** Approximately 22% of spend is in services CloudoX does not map to discovered architecture and is reported as unassociated. This portion cannot be attributed to a workload without further investigation in AWS Cost Explorer.
 
-**VPC / Networking** costs (NAT Gateway hours and data processing, inter-AZ transfer, data transfer out) are structurally implied by the four Internet Gateways and the multi-account, multi-region VPC footprint. These charges are often underestimated and can be material, particularly if the `us-east-1` gateways in the Audit and Log Archive accounts are associated with active NAT Gateways. **Requires validation.**
+**Tagging gap:** With only ~1% of resources tagged for cost allocation and 781 resources relying on inference for environment classification, tag-based showback or chargeback is not currently viable. Establishing a tagging standard is a prerequisite for reliable cost attribution.
 
-**Supporting account infrastructure** — the Management Account (`110319895932`), Audit Account (`110019496666`), Log Archive Account (`122980216815`), and Platform Account (`150982215529`) — carries baseline spend for AWS Control Tower / Organizations, CloudTrail, Config, and log storage. This is expected for a well-governed multi-account structure, but the volume of log storage and Config rule evaluations should be reviewed periodically.
+### Changes Since Previous Snapshot
 
-> **Key gaps for FinOps action:** Enable Cost Explorer collection (`CLOUDOX_COST__ENABLED=true`) to attach dollar figures to these architectural patterns. Priority validation targets are: (1) the purpose and activity of `us-east-1` VPC infrastructure in the Audit and Log Archive accounts, (2) DynamoDB capacity mode and utilization for all three tables, and (3) whether the dev API workload is sized proportionally to actual load.
+Several cost-relevant resources were added since the previous snapshot (approximately one hour prior):
+
+- **NAT Gateway and Elastic IP added in Workload Dev** (`nat-05bf82584b9610324` / `eipalloc-083eada77de5498db`): These introduce new recurring hourly and data-processing charges in the dev account. This is the most immediate cost-relevant change to validate.
+- **DynamoDB table `cloudox-demo-sandbox-events`** added in Sandbox Ma Account — a new table whose capacity mode and expected traffic are unknown.
+- **DR CloudFormation StackSet and CloudWatch alarm** added in Workload Prod (us-east-1) — confirms the DR footprint is newly provisioned, not pre-existing.
+- **SecurityHub, SSM, and Step Functions** entered discovered scope — usage-based charges for these services will now appear in billing.
+- The **Cloudox** workload grew from 9 to 10 member resources, and **Cloudox Demo Atlas Dev** grew from 4 to 5 member resources (inferred grouping changes — treat tentatively).
+
+Note: 98 additional changes were recorded in this snapshot period. See the Environment Evolution page for the full list.

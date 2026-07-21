@@ -10,59 +10,55 @@
 
 ## Operational Overview
 
-The environment spans **807 resources across 7 accounts**, with active workloads in Development, Production, and Sandbox environments. Four significant workloads are inferred alongside one system-level workload; one additional workload has been demoted to helper/governance status. Internet-facing API Gateway endpoints and DynamoDB tables are present across multiple accounts, making blast-radius awareness and tagging discipline operationally critical.
+The environment spans **833 resources across 6 of 7 known accounts** and **2 regions** (eu-central-1 and us-east-1). Four significant workloads are active alongside one governance/platform system; one additional workload has been demoted to helper/governance status. The majority of resource classification relies on inference rather than explicit tagging — 781 resources carry no Environment/Stage/Tier tag — which is the primary operational risk for triage and blast-radius assessment.
 
 ### What's Running
 
-The following accounts and environments make up the operational footprint:
+Resources are distributed across the following accounts and environments:
 
-| Account | Friendly Name | Environment(s) |
+| Account | Friendly Name | Environment |
 |---|---|---|
-| `110319895932` | Management Account | — |
-| `105769365151` | Workload Dev Account | Development Environment |
-| `122122642149` | Workload Prod Account | Production Environment |
-| `161388682021` | Sandbox Ma Account | Sandbox Environment |
-| `110019496666` | Audit Account | — |
-| `150982215529` | Platform Account | Production Environment |
-| `122980216815` | Log Archive Account | Unknown (unclassified) |
+| 110319895932 | Management Account | — |
+| 161388682021 | Sandbox Ma Account | Sandbox Environment |
+| 105769365151 | Workload Dev Account | Development Environment |
+| 122122642149 | Workload Prod Account | Production Environment (122122642149) |
+| 122980216815 | Log Archive Account | 122980216815 Unknown |
+| 110019496666 | Audit Account | — |
+| 150982215529 | Platform Account | Production Environment (150982215529) |
 
-Two public API Gateway endpoints are observed in `eu-central-1`:
-- `https://gfwaiva01f.execute-api.eu-central-1.amazonaws.com` — hosted in Workload Dev Account (`105769365151`)
-- `https://xdmn5ldmif.execute-api.eu-central-1.amazonaws.com` — also in `eu-central-1`
+One account is excluded from scope and is not reflected in the 833-resource count.
 
-Both endpoints are internet-accessible (`internet`), meaning they are reachable without VPN or private connectivity. Any misconfiguration in authorisation or throttling on these endpoints is directly customer-impacting.
+Key data-plane resources confirmed in scope include:
+- **DynamoDB tables**: `cloudox-demo-atlas-dev-items` (Workload Dev Account, `arn:aws:dynamodb:eu-central-1:105769365151:table/cloudox-demo-atlas-dev-items`), `cloudox-demo-atlas-prod-items` (Workload Prod Account, `arn:aws:dynamodb:eu-central-1:122122642149:table/cloudox-demo-atlas-prod-items`), `cloudox-demo-sandbox-events` (Sandbox Ma Account, `arn:aws:dynamodb:eu-central-1:161388682021:table/cloudox-demo-sandbox-events`), and `cloudox-demo-sandbox-scratch` (Sandbox Ma Account, `arn:aws:dynamodb:eu-central-1:161388682021:table/cloudox-demo-sandbox-scratch`).
+- **API Gateway endpoints**: `https://gfwaiva01f.execute-api.eu-central-1.amazonaws.com` and `https://xdmn5ldmif.execute-api.eu-central-1.amazonaws.com` — both internet-facing in eu-central-1.
+- **Internet Gateways**: present in the Audit Account (`igw-00ed21b9a0e6596a8` in us-east-1, `igw-0d14f1dd4e54d5906` in eu-central-1) and in the Workload Dev Account (`igw-0567575921f471548` in us-east-1), confirming public egress/ingress paths in multiple accounts and regions.
+- **Services newly in scope**: Security Hub (`securityhub`), Systems Manager (`ssm`), and Step Functions (`stepfunctions`) have entered the discovered scope since the previous snapshot.
 
-Three DynamoDB tables are identified as key data stores:
-- `cloudox-demo-atlas-dev-items` — Workload Dev Account (`105769365151`), `eu-central-1`
-- `cloudox-demo-atlas-prod-items` — Workload Prod Account (`122122642149`), `eu-central-1`
-- `cloudox-demo-sandbox-scratch` — Sandbox Ma Account (`161388682021`), `eu-central-1`
-
-Four internet gateways are present across accounts and regions, indicating VPCs with direct internet egress/ingress paths:
-- `igw-00ed21b9a0e6596a8` — Audit Account (`110019496666`), `us-east-1`
-- `igw-0d14f1dd4e54d5906` — Audit Account (`110019496666`), `eu-central-1`
-- `igw-0567575921f471548` — Workload Dev Account (`105769365151`), `us-east-1`
-- `igw-0cff0d66b4fd90803` — Log Archive Account (`122980216815`), `us-east-1`
-
-The presence of internet gateways in the Audit Account (`110019496666`) and Log Archive Account (`122980216815`) warrants scrutiny — these accounts typically do not require direct internet paths and their IGWs represent an unexpected attack surface.
+> **Coverage gap**: Resource Explorer and Cloud Control meta-collectors were unavailable during this discovery run. Long-tail resource types and the full AWS-visible breadth of the environment could not be cross-checked. The 833-resource figure should be treated as a lower bound.
 
 ### Operational Footprint
 
-**Tagging and classification gap — high operational risk.** 761 of 807 resources (approximately 94%) carry no `Environment`, `Stage`, or `Tier` tag. Classification of these resources relies entirely on inference. This directly impairs:
-- Incident scoping (which resources belong to which environment/workload?)
-- Change management blast-radius assessment
-- Cost attribution and chargeback
-- Automated runbook targeting
+**Accounts and regions**: The active workload footprint spans eu-central-1 (primary) and us-east-1 (DR/secondary), with internet gateways confirmed in both regions across multiple accounts. The Audit Account (`110019496666`) holds internet gateways in both regions, which warrants verification that this is intentional.
 
-This is the single highest-priority operational hygiene issue in the environment.
+**Internet exposure**: Two security groups have changed exposure state (see Changes below). Security group `sg-0d6a48061beb72eae` is now reachable from the internet; `sg-04fae132cfc68e91d` is no longer reachable. The two API Gateway endpoints (`https://gfwaiva01f.execute-api.eu-central-1.amazonaws.com`, `https://xdmn5ldmif.execute-api.eu-central-1.amazonaws.com`) are confirmed internet-accessible.
 
-**Collector coverage gaps.** Two meta-collectors were unavailable during discovery:
-- **Resource Explorer** was disabled or unavailable — AWS-visible resource breadth could not be cross-checked. There may be resource types or regions not captured in this inventory.
-- **Cloud Control** was disabled — long-tail and newer resource types are limited to typed collector coverage only.
+**DR posture**: A new CloudFormation StackSet stack (`StackSet-cloudox-demo-workload-prod-dr-e27aba00-144f-1560-0aed-593e2d919536`, `arn:aws:cloudformation:us-east-1:122122642149:stack/StackSet-cloudox-demo-workload-prod-dr-e27aba00-144f-1560-0aed-593e2d919536/acb94bf7-b3da-c32a-1613-327a5c08def2`) has been deployed in the Workload Prod Account in us-east-1, consistent with a DR build-out. A corresponding CloudWatch alarm (`cloudox-demo-atlas-prod-dr-bucket-size`, `arn:aws:cloudwatch:us-east-1:122122642149:alarm:cloudox-demo-atlas-prod-dr-bucket-size`) monitors DR bucket size in the same account and region.
 
-Operators should treat the 807-resource count as a lower bound. Resources in uncovered types or regions will not appear in this view.
+**Observability**: Security Hub and SSM are now in scope, which may indicate new compliance or patch-management coverage. The CloudWatch alarm for the DR bucket is the only alarm explicitly observed in this section's evidence set; broader alarm and dashboard coverage is not confirmed here.
 
-**Multi-region presence.** Internet gateways are observed in both `eu-central-1` and `us-east-1`. The primary workload DynamoDB tables are in `eu-central-1`. The `us-east-1` IGWs in the Dev and Log Archive accounts suggest either legacy infrastructure, cross-region replication paths, or unmanaged sprawl — the package does not distinguish between these.
+**Tagging and classification risk**: 781 of 833 resources (≈94%) carry no Environment/Stage/Tier tag. Workload and environment assignments for these resources are inferred, not authoritative. This directly affects incident triage, change-window scoping, and cost attribution. Operators should treat any automated classification of untagged resources as tentative.
 
-**Log Archive Account environment unknown.** The Log Archive Account (`122980216815`) has no confirmed environment classification (`122980216815-unknown`). Given its role in centralised logging, any operational disruption here could silently degrade observability across all other accounts. Its internet gateway (`igw-0cff0d66b4fd90803` in `us-east-1`) should be reviewed for necessity.
+**Log Archive Account**: The Log Archive Account (`122980216815`) has a confidence of Likely and its environment classification is Assumed. Confirm that log delivery pipelines to this account are intact and that the account is not inadvertently excluded from future discovery runs.
 
-> **Coverage note:** Observability tooling (alarms, dashboards, log groups), backup configurations, and detailed networking topology are covered in dedicated sections of this view. The gaps noted above (collector coverage, tagging) affect those sections as well.
+### Changes Since Previous Snapshot
+
+The following changes were observed between the previous snapshot (2026-07-20T11:50:27Z) and the current run (2026-07-20T12:54:55Z):
+
+- **Exposure change (action required)**: Security group `sg-0d6a48061beb72eae` became reachable from the internet. Validate that this is intentional and that the associated resources are appropriately hardened.
+- **Exposure change**: Security group `sg-04fae132cfc68e91d` is no longer reachable from the internet. Confirm this is expected and not an unintended connectivity break.
+- **New services in scope**: `securityhub`, `ssm`, and `stepfunctions` entered the discovered scope — verify these are enabled and configured as intended across the relevant accounts.
+- **DR stack deployed**: CloudFormation stack `StackSet-cloudox-demo-workload-prod-dr-e27aba00-144f-1560-0aed-593e2d919536` was added in the Workload Prod Account (us-east-1), alongside the CloudWatch alarm `cloudox-demo-atlas-prod-dr-bucket-size`.
+- **New DynamoDB table**: `cloudox-demo-sandbox-events` was added in the Sandbox Ma Account (eu-central-1).
+- **Workload sizing (inferred)**: The `cloudox` workload tentatively grew from 9 to 10 member resources; `cloudox-demo-atlas-dev` tentatively grew from 4 to 5 member resources.
+
+An additional **72 changes** occurred in this snapshot period that are not enumerated here. See the Environment Evolution page for the full list.

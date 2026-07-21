@@ -6,79 +6,61 @@
 
 ---
 
-> _Part of the [Security View](./README.md) · Audience: Security & Governance teams · Confidence: Likely_
+> _Part of the [Security View](./README.md) · Audience: Security & Governance teams · Confidence: Verified_
 
 ## Identity & Access Risks
 
-**Confidence: Likely** — findings are derived from graph evidence; some unknowns and naming-based inferences remain. See assumptions and gaps below.
-
-The most pressing governance concern across this environment is the absence of consistent detective controls: both IAM Access Analyzer and GuardDuty are enabled in only **1 of 6 scanned accounts**, leaving the majority of the estate — including the Management Account and Workload Prod Account — without external-access analysis or threat detection. Alongside this, a broadly-named administrative IAM role in the Sandbox account warrants immediate privilege review.
-
----
+The most pressing finding across this environment is the near-absence of automated detective controls: both GuardDuty and IAM Access Analyzer are active in only **1 of 6 scanned accounts**, leaving the Management Account (110319895932), Workload Dev (105769365151), Workload Prod (122122642149), Sandbox (161388682021), and Log Archive (122980216815) without consistent threat detection or external-access analysis. Two IAM roles in the Sandbox account carry names that strongly suggest broad administrative privilege and warrant immediate policy review.
 
 ### Privilege & Trust
 
-Several IAM roles with elevated or broad trust scope are present across the environment.
+Three IAM roles in the Sandbox account (161388682021) are relevant to privilege risk:
 
-**`OrganizationAccountAccessRole` — cross-account administrative trust**
+| Role | Principal ID | Concern |
+|---|---|---|
+| `cloudox-demo-sandbox-ci-admin` | `AROAAAAAAO5VMOEOZ70IX` | Name implies CI pipeline with admin-level access |
+| `cloudox-demo-sandbox-unused-admin` | `AROAAAAADPCL3BVEXUDTH` | Name implies unused admin role — standing privilege with no apparent active use |
 
-Instances of `OrganizationAccountAccessRole` are present in four member accounts: Log Archive Account (`122980216815`, `AROAAAAAB33DHRZ72LLFE`), Audit Account (`110019496666`, `AROAAAAACLQX0PDP245PQ`), Workload Dev Account (`105769365151`, `AROAAAAAC6A0RHGHCRIWC`), and Workload Prod Account (`122122642149`, `AROAAAAADGV42TTJ3H83B`). This role is the standard AWS Organizations cross-account access mechanism and typically grants full administrative access from the Management Account (`110319895932`). Its presence in production and log-archive accounts means the Management Account is a high-value lateral-movement target — compromise of the Management Account implies administrative access to all four.
+**Confidence: Assumed** — Privilege breadth for both roles is inferred from naming conventions; actual attached policies have not been collected. These findings must be validated by reviewing the policies directly before drawing conclusions about blast radius.
 
-Evidence: `arn:aws:iam::161388682021:role/OrganizationAccountAccessRole`
+Recommended action for both: enumerate attached and inline policies, apply least-privilege scoping, and remove or disable `cloudox-demo-sandbox-unused-admin` if it has no active use case.
 
-**`cloudox-demo-sandbox-unused-admin` — broadly-privileged role, Sandbox account**
-
-> **Confidence: Assumed** — privilege breadth is inferred from naming only; attached policies have not been collected.
-
-The IAM role `cloudox-demo-sandbox-unused-admin` (`AROAAAAADPCL3BVEXUDTH`) in the Sandbox Ma Account (`161388682021`) carries a name that strongly suggests broad or administrative permissions. The "unused" component of the name may indicate the role is dormant, but an unreviewed administrative role — even if currently inactive — represents a standing blast-radius risk: it can be assumed by any principal with the right trust relationship at any time.
-
-Recommended action: Inspect attached and inline policies to confirm actual permission scope; apply least-privilege scoping or remove the role if it is genuinely unused.
-
-Evidence: `arn:aws:iam::161388682021:role/cloudox-demo-sandbox-unused-admin` | Item: `risk:security:cloudox-demo-sandbox-unused-admin`
-
-**Supporting roles in scope (Management Account)**
-
-Two additional roles in the Management Account (`110319895932`) are present in the evidence set:
-- `cloudox-demo-org-trail-logs` (`arn:aws:iam::110319895932:role/cloudox-demo-org-trail-logs`) — associated with the organisation-level CloudTrail trail (`arn:aws:cloudtrail:eu-central-1:110319895932:trail/cloudox-demo-org-trail-o-aaaapzvebq`), indicating log-delivery trust.
-- `AWSServiceRoleForCloudFormationStackSetsOrgAdmin` — the AWS-managed service-linked role for StackSets org-admin delegation.
-
-These roles appear consistent with their named purposes; no anomaly is flagged for them in this section.
-
-**Sandbox scratch Lambda role**
-
-`cloudox-demo-sandbox-scratch-lambda` (`arn:aws:iam::161388682021:role/cloudox-demo-sandbox-scratch-lambda`) is present in the Sandbox Ma Account. No privilege anomaly is flagged for this role in the current evidence set; it is noted for completeness.
-
----
+Several `OrganizationAccountAccessRole` instances are present across accounts (122980216815, 110019496666, 105769365151). These are standard AWS Organizations cross-account roles and are noted as key entities; their trust policies and usage patterns are not detailed in this section's package.
 
 ### Access Risks
 
-Two medium-severity, organisation-wide detective-control gaps are identified. Both affect the same five accounts and share the same recommended remediation path.
+**GuardDuty — Uneven threat detection coverage**
+**Confidence: Likely** | Severity: Medium | `risk:security:aws-guardduty-detector`
 
-| Risk | Severity | Confidence | Accounts Affected |
-|---|---|---|---|
-| Uneven IAM Access Analyzer coverage | Medium | Likely | 5 of 6 scanned |
-| Uneven GuardDuty threat detection coverage | Medium | Likely | 5 of 6 scanned |
+GuardDuty is confirmed active in 1 of 6 scanned accounts. The five accounts without coverage — Management (110319895932), Workload Dev (105769365151), Workload Prod (122122642149), Sandbox (161388682021), and Log Archive (122980216815) — have reduced threat detection. The Workload Prod account is of particular concern given its likely sensitivity.
 
-**IAM Access Analyzer — 5 accounts uncovered**
+> **Recommended action:** Enable GuardDuty org-wide via a delegated administrator to ensure consistent coverage without per-account configuration.
 
-IAM Access Analyzer is enabled in 1 of 6 scanned accounts. The five accounts without coverage are: Log Archive Account (`122980216815`), Workload Dev Account (`105769365151`), Workload Prod Account (`122122642149`), Management Account (`110319895932`), and Sandbox Ma Account (`161388682021`). Without Access Analyzer, externally-shared resources (S3 buckets, IAM roles, KMS keys, etc.) in these accounts will not be automatically flagged — reducing the team's ability to detect unintended public or cross-account exposure.
+---
 
-Recommended action: Enable IAM Access Analyzer org-wide via a delegated administrator to ensure consistent, centralised coverage.
+**IAM Access Analyzer — Uneven external-access analysis coverage**
+**Confidence: Likely** | Severity: Medium | `risk:security:aws-accessanalyzer-analyzer`
 
-Item: `risk:security:aws-accessanalyzer-analyzer`
+IAM Access Analyzer is active in 1 of 6 scanned accounts. The same five accounts listed above lack coverage, meaning resource policies granting external access (cross-account or public) will not be automatically flagged in those accounts.
 
-**GuardDuty — 5 accounts uncovered**
+> **Recommended action:** Enable IAM Access Analyzer org-wide via a delegated administrator, ideally with an organization-level analyzer to cover all accounts from a single pane.
 
-GuardDuty threat detection is enabled in 1 of 6 scanned accounts. The same five accounts listed above are uncovered. This means anomalous API calls, credential exfiltration signals, and network-level threats in those accounts — including the Management Account and Workload Prod Account — will not generate GuardDuty findings.
+---
 
-Recommended action: Enable GuardDuty org-wide via a delegated administrator to ensure consistent threat detection and centralised finding aggregation.
+**Broadly-privileged roles in Sandbox**
+**Confidence: Assumed** | Severity: Medium
 
-Item: `risk:security:aws-guardduty-detector`
+- `cloudox-demo-sandbox-ci-admin` (`AROAAAAAAO5VMOEOZ70IX`) — `risk:security:cloudox-demo-sandbox-ci-admin`
+- `cloudox-demo-sandbox-unused-admin` (`AROAAAAADPCL3BVEXUDTH`) — `risk:security:cloudox-demo-sandbox-unused-admin`
 
-**Security group exposure (Workload Prod Account)**
+Both roles are flagged on naming inference only. The "unused" label in the second role name raises an additional concern: a standing admin role with no active workload represents unnecessary persistent privilege. Validate whether either role has been assumed recently and whether admin-level permissions are genuinely required.
 
-Two security groups are present in the evidence set for the Workload Prod Account (`122122642149`): `sg-0459201826f8de5b3` and `sg-06f2b4190bf01d261`. Their rule configurations are not detailed in this section's package; network exposure analysis is covered in the relevant network/exposure section of this view.
+### Changes Since Previous Snapshot
 
-A third security group, `sg-054446d655de1ee7f`, is present in the Sandbox Ma Account (`161388682021`).
+Three IAM roles were added between the previous snapshot (2026-07-20T11:50) and the current one (2026-07-20T12:54):
 
-> **Governance gap — Security Hub:** No Security Hub enablement was discovered across any scanned account. Security Hub would provide a normalised, aggregated view of findings from GuardDuty, Access Analyzer, and other services. Its absence means there is no single-pane governance layer for security findings today.
+- **`cloudox-demo-sandbox-ci-admin`** (`AROAAAAAAO5VMOEOZ70IX`) added to Sandbox account (161388682021) — this is the same role flagged as a privilege risk above. Its recent creation makes policy review more urgent.
+- **`cloudox-demo-atlas-dev-ingest-sfn`** (`AROAAAAAAIJ1CH5G3USEC`) added to Workload Dev account (105769365151).
+- **`cloudox-demo-atlas-prod-dr-replicator`** (`AROAAAAACFUR6W6I0LR0G`) added to Workload Prod account (122122642149).
+
+Additional related changes exist beyond those listed here; see the Environment Evolution page for the full picture.

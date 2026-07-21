@@ -10,27 +10,40 @@
 
 ## Optimization Opportunities
 
-> **Confidence: Likely** — Spend data is unavailable for this run; all analysis is derived from discovered architecture. No dollar savings figures can be stated. Exact cost attribution requires AWS Cost Explorer or CUR.
-
-One architecture-level candidate has been identified that warrants validation. No utilization-based right-sizing or idle-resource recommendations are available in this run (see gaps below).
+Two candidates have been identified — one cost-focused, one architectural — both requiring validation before any action is taken. Neither carries a precise dollar figure (cost attribution should be confirmed in AWS Cost Explorer), but both represent patterns known to generate ongoing charges or availability risk.
 
 ### Optimization Candidates
 
-| # | Resource | Finding | Recommended Action | Priority |
-|---|----------|---------|-------------------|----------|
-| 1 | `cloudox-demo-atlas-prod-pg` | Single-AZ RDS instance — no Multi-AZ standby configured. A zone failure could cause downtime or data loss. | Evaluate enabling a Multi-AZ standby for resilience. | 4 |
+**NAT Gateway Consolidation** (Cost domain · Confidence: Likely)
 
-**`cloudox-demo-atlas-prod-pg`** (`modernization_opportunity:architecture:cloudox-demo-atlas-prod-pg`) is a production database instance running without a Multi-AZ standby. This is flagged primarily as a **resilience gap**, not a cost-saving opportunity — enabling Multi-AZ would *increase* spend (a standby instance incurs additional charges). The FinOps relevance is the inverse: the current single-AZ configuration avoids that cost, but at the expense of availability and recovery posture. Finance and engineering should align on whether the risk trade-off is intentional before treating the current configuration as a cost optimisation.
+One NAT Gateway — `cloudox-demo-atlas-dev-nat` (`nat-05bf82584b9610324`, account `105769365151`, eu-central-1) — carries non-production tags. NAT Gateways bill both per hour and per GB of data processed, meaning even lightly used gateways accumulate a fixed hourly cost continuously. A dedicated Elastic IP (`eipalloc-083eada77de5498db`) is also associated with this gateway, adding a small but persistent charge.
 
-*Requires validation before any action is taken.*
+For non-production environments, options worth validating include: consolidating to a shared egress path, replacing NAT Gateway routes with VPC endpoints for AWS-service traffic, or removing the gateway entirely if outbound internet access is not required in that environment. **Validation is required** — egress patterns and any HA requirements must be confirmed before changes are made.
+
+**Single-AZ Datastore: cloudox-demo-atlas-prod-pg** (Architecture domain · Confidence: Verified)
+
+The RDS instance `cloudox-demo-atlas-prod-pg` has no Multi-AZ standby configured. This is primarily an availability and recovery posture concern: a zone failure could cause downtime or data loss. From a FinOps perspective, enabling Multi-AZ would increase RDS cost (roughly doubling instance-hour charges for that instance), so any decision to remediate should weigh the cost increase against the recovery requirement. The recommended action is to evaluate whether a Multi-AZ standby is appropriate given the production workload's RTO/RPO targets.
 
 ### Estimated Impact
 
-No spend data is available for this run, so no savings estimates or cost impact figures can be provided. The architectural finding above carries a **resilience impact** (reduced availability / recovery posture) rather than a direct savings opportunity. Enabling Multi-AZ on `cloudox-demo-atlas-prod-pg` would represent an incremental cost increase, not a reduction.
+Neither opportunity carries a package-derived dollar estimate. Spend figures are not attributed at the resource level in this section; exact costs for the NAT Gateway (hourly + data processing) and the RDS instance should be pulled from AWS Cost Explorer or CUR, filtered to the relevant account and resource.
 
-The following gaps limit the completeness of this section and should be addressed to unlock a fuller optimization picture:
+Material gaps that limit optimization coverage:
+- CloudWatch utilization metrics are not collected in this version, so idle-resource and right-sizing recommendations are not available.
+- RDS provisioned IOPS, DynamoDB capacity mode, and S3 storage classes are outside current collector scope.
+- Only 1% of resources carry a cost-allocation tag, making tag-based attribution unreliable across the environment.
+- Approximately 22% of spend maps to services not yet linked to discovered architecture and is reported as unassociated.
 
-- **Cost Explorer is disabled** (`CLOUDOX_COST__ENABLED=false`): no spend figures, trending, or cost-per-service breakdowns are available.
-- **CloudWatch utilization metrics are not collected**: idle resources, underutilized instances, and right-sizing candidates based on actual usage cannot be identified in this version.
-- **Several resource attributes are not captured** by current collectors (RDS read replicas, RDS provisioned IOPS, DynamoDB capacity mode, Direct Connect, S3 storage classes), so cost drivers for those services are not detected.
-- **761 resources carry no Environment / Stage / Tier tag** and rely on inference for classification, which may affect the accuracy of environment-level cost attribution.
+These gaps mean the two candidates above represent a floor, not a ceiling, of optimization potential.
+
+### Changes Since Previous Snapshot
+
+Several changes since the previous snapshot (approximately one hour prior) are directly relevant to the NAT Gateway opportunity:
+
+- The NAT Gateway `cloudox-demo-atlas-dev-nat` (`nat-05bf82584b9610324`) and its associated Elastic IP (`eipalloc-083eada77de5498db`, `cloudox-demo-atlas-dev-nat-eip`) were **newly added** in this snapshot — meaning the per-hour billing clock for this resource started recently.
+- A new DynamoDB table `cloudox-demo-sandbox-events` was added in account `161388682021` (eu-central-1), which may introduce additional read/write capacity charges depending on its provisioned or on-demand mode (capacity mode is not captured by current collectors).
+- A CloudFormation StackSet stack for a prod DR configuration (`StackSet-cloudox-demo-workload-prod-dr-…`, us-east-1) and an associated CloudWatch alarm (`cloudox-demo-atlas-prod-dr-bucket-size`) were added, suggesting DR infrastructure expansion in us-east-1 that may carry its own cost footprint.
+- Services `securityhub`, `ssm`, and `stepfunctions` entered the discovered scope; their cost contribution is not attributed in this section.
+- Two workloads (`cloudox` and `cloudox-demo-atlas-dev`) tentatively grew by one member resource each.
+
+Note: 88 additional changes occurred in this snapshot period and are not enumerated here — see the Environment Evolution page for the full list.

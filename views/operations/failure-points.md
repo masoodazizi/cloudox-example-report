@@ -16,6 +16,4 @@ _Covers: Single Points of Failure · Resilience Gaps_
 
 **Unknowns**
 
-- 761 resource(s) have no Environment / Stage / Tier tag and rely on inference for classification.
-
-_This section is shown with CloudoX's deterministic rendering (AI narration unavailable or could not be grounded)._
+- 781 resource(s) have no Environment / Stage / Tier tag and rely on inference for classification.

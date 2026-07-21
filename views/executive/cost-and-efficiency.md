@@ -10,24 +10,27 @@
 
 ## Cost & Efficiency Signals
 
-> **Confidence: Likely** — Spend data is unavailable for this analysis run. All observations are derived from the discovered architecture; no dollar figures can be stated. Treat this section as directional until Cost Explorer data is enabled.
-
-The most important action here is an instrumentation gap: cost collection is currently disabled, meaning leadership has no automated spend visibility from this tooling. Enabling it should be treated as an immediate operational decision.
+The environment spans four active accounts — **Workload Dev**, **Workload Prod**, **Sandbox Ma**, and **Management** — plus **Log Archive** and **Audit** accounts. One actionable cost reduction candidate has been identified. However, several material gaps limit full cost visibility: roughly 22% of spend cannot be mapped to discovered architecture, and only 1% of resources carry cost-allocation tags, making tag-based attribution unreliable today.
 
 ### Where the Money Goes
 
-Six accounts are in scope — **Management Account**, **Sandbox Ma Account**, **Workload Dev Account**, **Workload Prod Account**, **Log Archive Account**, and **Audit Account**. Charges will be distributed across these accounts, with the production and development workload accounts most likely representing the largest share of compute and data spend.
+Exact spend figures are not available in this section's package — detailed cost attribution should be reviewed directly in AWS Cost Explorer or CUR. What is known architecturally is that the environment runs active ECS services across both Dev (`cloudox-demo-atlas-dev-api`) and Prod (`cloudox-demo-atlas-prod-api`) accounts in `eu-central-1`, alongside API Gateway endpoints and a DynamoDB table in the Sandbox account. These resource patterns are known cost carriers (compute, data transfer, API calls, and storage), but dollar amounts are not stated here.
 
-Because Cost Explorer collection is disabled, no per-account, per-service, or per-region spend breakdown is available. The architecture confirms resources exist across these accounts that carry ongoing charges (compute, storage, networking, and logging infrastructure), but exact attribution cannot be stated from this run.
+Three coverage gaps are worth flagging for leadership:
+- **~22% of spend is unassociated** — it exists in billing but cannot be mapped to any discovered resource. This is reported as-is rather than force-attributed.
+- **Tag coverage is 1%** — cost allocation by team, environment, or product is not currently actionable.
+- **CloudWatch utilization metrics are not collected** in this version, so idle or over-provisioned resource recommendations are not available.
 
 ### Efficiency Opportunities
 
-Three structural gaps prevent efficiency analysis at this time:
+One cost reduction candidate has been identified: **NAT Gateway consolidation** (`cost_opportunity:cost:nat-gateway-consolidation`).
 
-| Gap | Impact |
-|---|---|
-| Cost Explorer collection disabled | No spend data; no trend, anomaly, or waste detection |
-| CloudWatch utilization metrics not collected | Idle or underutilized resources cannot be identified; right-sizing is not possible |
-| Several service dimensions not captured (RDS replicas, provisioned IOPS, DynamoDB capacity mode, Direct Connect, S3 storage classes) | Cost drivers for these services are undetected even if resources exist |
+| Candidate | Account | Detail |
+|---|---|---|
+| Cloudox Demo Atlas Dev NAT Gateway | Workload Dev | Non-production tagged; billed per hour + per GB egress |
 
-**Decision needed:** Enable cost collection (`CLOUDOX_COST__ENABLED=true`) to unlock spend attribution, efficiency recommendations, and anomaly detection in subsequent runs. Until then, teams should rely directly on AWS Cost Explorer and Cost and Usage Reports for spend oversight.
+NAT Gateways accrue charges continuously regardless of traffic volume. One NAT Gateway carrying non-production tags has been flagged as a consolidation candidate. Options to evaluate include shared egress, replacing with VPC endpoints for AWS-service traffic, or removing the gateway in low-criticality environments where high availability is not required.
+
+**This is a candidate, not a confirmed saving** — validate egress patterns and HA requirements before acting. No immediate leadership decision is required, but delegating a validation review to the platform or infrastructure team is recommended.
+
+> **Confidence: Likely.** The opportunity is derived from graph evidence of resource presence and tagging; actual cost impact requires validation against billing data in AWS Cost Explorer.

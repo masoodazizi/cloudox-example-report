@@ -10,19 +10,27 @@
 
 ## Evidence Appendix
 
-This appendix identifies the accounts and workloads that underpin the analysis in this view. No raw evidence items were surfaced for this section.
-
 ### Key Entities
 
-The following cloud accounts and workloads were identified as in-scope for this view.
+The following AWS accounts and workloads underpin this view:
 
-| Friendly Name | Type | Region | Confidence |
-|---|---|---|---|
-| Management Account | Account | — | Verified |
-| Sandbox Ma Account | Account | — | Verified |
-| Workload Dev Account | Account | — | Verified |
-| Workload Prod Account | Account | — | Verified |
-| Log Archive Account | Account | — | Likely |
-| Cloudox Demo Atlas Prod API | Workload | eu-central-1 | Likely |
+| Friendly Name | Type | Confidence |
+|---|---|---|
+| Management Account | Account | Verified |
+| Workload Prod Account | Account | Verified |
+| Workload Dev Account | Account | Verified |
+| Sandbox Ma Account | Account | Verified |
+| Log Archive Account | Account | Likely |
+| Cloudox Demo Atlas Prod API | Workload (eu-central-1) | Likely |
 
-Two entities carry a **Likely** confidence rating — Log Archive Account and the Cloudox Demo Atlas Prod API workload — meaning their classification or scope boundary has not been fully verified. Decisions that depend on the completeness of log archiving or the production API workload boundary should account for this uncertainty.
+The Log Archive Account and the Cloudox Demo Atlas Prod API workload carry a **Likely** confidence — treat any findings tied to these entities as directionally sound but worth confirming with the environment owner.
+
+### Evidence
+
+No intelligence items are surfaced in this appendix. The provider-native evidence underpinning this view traces to the **Cloudox Demo Atlas Prod API** ECS service running in the Workload Prod Account (eu-central-1).
+
+### Changes Since Previous Snapshot
+
+Between the 11:50 and 12:54 UTC snapshots on 2026-07-20, one observed change was recorded:
+
+- **Cloudox Demo Atlas Prod API** (ECS Service, Workload Prod Account, eu-central-1): desired and running task count scaled from **1 → 2**.

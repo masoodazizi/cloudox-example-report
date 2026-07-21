@@ -10,56 +10,63 @@
 
 ## Networking & Connectivity
 
-The network topology spans three isolated VPCs across two AWS accounts, all anchored in **eu-central-1**. Each VPC carries its own Internet Gateway, meaning internet egress is distributed rather than centralised — a design choice with direct implications for traffic inspection, cost visibility, and blast-radius control. One VPC-level private connectivity endpoint exists, but coverage is partial.
+Three independent VPCs span a single region (eu-central-1) across three AWS accounts — Dev, Prod, and Sandbox — each with its own internet gateway. The topology is flat and account-isolated: no evidence of VPC peering, Transit Gateway, or shared networking constructs was found within this section's scope. This means inter-environment traffic (e.g., Dev-to-Prod) would traverse the public internet unless connectivity is established elsewhere.
 
 ### VPCs & Subnets
 
-Three VPCs are in scope across three accounts:
+The three VPCs and their accounts are:
 
-| VPC | Friendly Name | Account | Region |
-|-----|--------------|---------|--------|
-| `vpc-0a4d44a07f48d7ca0` | Cloudox Demo Atlas Dev VPC | 105769365151 | eu-central-1 |
-| `vpc-0aaa6d4f2f981e945` | Cloudox Demo Atlas Prod VPC | 122122642149 | eu-central-1 |
-| `vpc-0c97d53850c027a14` | Cloudox Demo Sandbox VPC | 161388682021 | eu-central-1 |
+| Friendly Name | VPC ID | Account | Region |
+|---|---|---|---|
+| Cloudox Demo Atlas Dev VPC | `vpc-0a4d44a07f48d7ca0` | 105769365151 | eu-central-1 |
+| Cloudox Demo Atlas Prod VPC | `vpc-0aaa6d4f2f981e945` | 122122642149 | eu-central-1 |
+| Cloudox Demo Sandbox VPC | `vpc-0c97d53850c027a14` | 161388682021 | eu-central-1 |
 
-Five subnets are identified, all classified as **Public Subnet** across the three accounts:
+Five public subnets are confirmed across the three VPCs:
 
-| Subnet ID | Account | Region |
-|-----------|---------|--------|
-| `subnet-016c22941a019a137` | 122122642149 | eu-central-1 |
-| `subnet-013a24d318ed6f3d0` | 122122642149 | eu-central-1 |
-| `subnet-0f64d71c952a7898a` | 105769365151 | eu-central-1 |
-| `subnet-065f522206524ab12` | 105769365151 | eu-central-1 |
-| `subnet-029e2cceb3d0beff7` | 161388682021 | eu-central-1 |
+| Friendly Name | Subnet ID | Account |
+|---|---|---|
+| Public Subnet (b065) | `subnet-065f522206524ab12` | 105769365151 (Dev) |
+| Public Subnet (d725) | `subnet-0f64d71c952a7898a` | 105769365151 (Dev) |
+| Public Subnet (5a8a) | `subnet-016c22941a019a137` | 122122642149 (Prod) |
+| Public Subnet (94f8) | `subnet-013a24d318ed6f3d0` | 122122642149 (Prod) |
+| Public Subnet (244e) | `subnet-029e2cceb3d0beff7` | 161388682021 (Sandbox) |
 
-**Design issue — public-only subnet posture:** All five discovered subnets are public. No private subnets are present in this section's evidence. Workloads placed in these subnets are directly reachable from the internet (subject to security group and NACL rules), which increases the attack surface for compute and data-tier resources. A private-subnet tier with NAT-based egress is the conventional mitigation for production and dev workloads that do not require inbound internet exposure.
+All five confirmed subnets are public-facing. Private subnets, if present, are not represented in this section's package and may be covered elsewhere.
 
 ### Routing & Egress
 
-Each VPC has a dedicated Internet Gateway:
+Each VPC has a dedicated internet gateway:
 
-| IGW | Friendly Name | VPC Account |
-|-----|--------------|-------------|
-| `igw-0155958a0a5e9c500` | Cloudox Demo Atlas Dev Igw Internet Gateway | 105769365151 |
-| `igw-01dd5625ec1ea7a54` | Cloudox Demo Atlas Prod Igw Internet Gateway | 122122642149 |
-| `igw-08017528fa36ccb4d` | Sandbox Internet Gateway | 161388682021 |
+- **Cloudox Demo Atlas Dev Igw** (`igw-0155958a0a5e9c500`) — attached to the Dev VPC (`vpc-0a4d44a07f48d7ca0`)
+- **Cloudox Demo Atlas Prod Igw** (`igw-01dd5625ec1ea7a54`) — attached to the Prod VPC (`vpc-0aaa6d4f2f981e945`)
+- **Sandbox Internet Gateway** (`igw-08017528fa36ccb4d`) — attached to the Sandbox VPC (`vpc-0c97d53850c027a14`)
 
-The 1:1 IGW-to-VPC pattern is standard AWS architecture and confirms that internet egress is decentralised — each environment breaks out independently. This is consistent with an account-per-environment isolation model, but it means there is no single choke-point for egress filtering or flow logging aggregation. Architects evaluating a hub-and-spoke or centralised egress model (e.g., via AWS Network Firewall or a Transit Gateway inspection VPC) should note this as a modernisation opportunity.
+A NAT Gateway — **Cloudox Demo Atlas Dev NAT** (`nat-05bf82584b9610324`) — is present in the Dev account (105769365151) in eu-central-1, placed in the public subnet `subnet-065f522206524ab12` (b065). This provides outbound internet access for private resources in the Dev VPC. No equivalent NAT Gateway is evidenced for the Prod or Sandbox VPCs in this section's package.
 
-Two AWS-managed prefix lists are referenced in the environment (`pl-66a5400f`, `pl-6ea54007`), both in eu-central-1. These correspond to AWS service IP ranges used in route tables or security group rules. Their presence indicates some routing or filtering rules reference AWS-managed service CIDRs, but the specific route tables and rules that consume them are not detailed in this section's evidence.
+The presence of NAT in Dev but not (evidenced) in Prod is a design asymmetry worth validating: if Prod hosts private workloads requiring outbound internet access, a NAT Gateway may be absent or covered in a different section.
 
 ### Private Connectivity
 
-One VPC endpoint is present:
+No evidence of VPC peering connections, AWS Transit Gateway, AWS PrivateLink endpoints, or VPN/Direct Connect attachments was found in this section's package. The three VPCs — Dev, Prod, and Sandbox — appear to be network-isolated from each other. Cross-environment connectivity, if required by workloads, is not accounted for here and should be validated with the environment owner.
 
-| Endpoint | Type | Account | Region |
-|----------|------|---------|--------|
-| `vpce-02ddbd8d63a6ab447` | DynamoDB Interface Endpoint | 122122642149 | eu-central-1 |
+Two AWS-managed prefix lists are referenced in the evidence set:
+- `pl-66a5400f` (`arn:aws:ec2:eu-central-1:aws:prefix-list/pl-66a5400f`)
+- `pl-6ea54007` (`arn:aws:ec2:eu-central-1:aws:prefix-list/pl-6ea54007`)
 
-This endpoint is in the **Atlas Prod** account (`122122642149`), providing private routing to DynamoDB without traversing the public internet. This is a positive pattern for the production environment.
+These are AWS-owned prefix lists (e.g., for S3 or CloudFront gateway endpoints) referenced in security group or route table rules. Their specific usage context is not detailed in this section's package.
 
-**Design issue — incomplete private connectivity coverage:** No equivalent VPC endpoints are evidenced for the **Atlas Dev** (`105769365151`) or **Sandbox** (`161388682021`) VPCs. If those environments also use DynamoDB or other AWS services (S3, SSM, Secrets Manager, etc.), traffic to those services currently routes via the IGW over the public internet. This is both a security gap and a potential cost consideration (data transfer charges). Extending gateway or interface endpoints to dev and sandbox VPCs, and auditing which AWS services are accessed without endpoints in all three VPCs, is a concrete modernisation action.
+### Changes Since Previous Snapshot
 
-No VPC peering connections, Transit Gateway attachments, or PrivateLink service endpoints are present in this section's evidence. Cross-VPC and cross-account connectivity patterns are not established from this evidence set.
+Several meaningful networking changes occurred between the previous snapshot (2026-07-20T11:50) and the current one (2026-07-20T12:54):
+
+- **NAT Gateway added:** `nat-05bf82584b9610324` (Cloudox Demo Atlas Dev NAT) was newly provisioned in the Dev VPC — a significant egress architecture change for that environment.
+- **Internet exposure reduced:** Security group `sg-04fae132cfc68e91d` is no longer reachable from the internet, indicating a tightening of inbound access rules.
+- **ENI placement activity:** Five new ENI-to-subnet relationships were added (ENIs `eni-058ad447b7287912a`, `eni-0dbafb51ea9a9ffd3`, `eni-0fa5e7a1b3798b7d3`, `eni-00815b97162c6a5fc`, `eni-0d070d51a01905b0b` placed into subnets including `subnet-0b0384769d442046a`, `subnet-065f522206524ab12`, `subnet-013a24d318ed6f3d0`, and `subnet-0f64d71c952a7898a`), and one ENI (`eni-0c9de7ff9cd35fe20`) was removed from `subnet-0b0384769d442046a`. This suggests new workloads or services were attached to the network.
+- **Available IP counts decreased** in two public subnets: `subnet-065f522206524ab12` (Dev, 251→249) and `subnet-013a24d318ed6f3d0` (Prod, 250→249), consistent with the new ENI placements.
+
+Note: 11 additional related changes exist beyond those listed here. See the Environment Evolution page for the full set.
 
 ![Workload VPC network topology](./diagrams/architect-network-topology.png)
+
+> **Figure — Workload VPC network topology.** Which workload VPCs exist, how is each tiered, and what is reachable from the internet? Scope: architect view · networking and connectivity. 2 of 2 workload VPC(s) shown with subnet tiers and evidence-backed connectivity. Default VPCs omitted. Tiers are route-grounded (public = Internet Gateway route or internet-facing load balancer).
